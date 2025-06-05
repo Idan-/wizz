@@ -201,11 +201,11 @@ def generate_page(ARRIVAL_TYPE="ALL", FROM="TLV", DATES="ALL", MAX_CALL_COUNT_PE
             print(f"Renamed to {new_filename}")
             
             # Step 3: Add the new file to git
-            try:
-                subprocess.run(["git", "add", new_filename], check=True)
-                print(f"Added {new_filename} to git")
-            except subprocess.CalledProcessError as e:
-                print(f"Error adding to git: {e}")
+            # try: ##### commented out to check github actions
+            #     subprocess.run(["git", "add", new_filename], check=True)
+            #     print(f"Added {new_filename} to git")
+            # except subprocess.CalledProcessError as e:
+            #     print(f"Error adding to git: {e}")
         else:
             print("index.html does not exist.")
 
@@ -230,16 +230,18 @@ def generate_page(ARRIVAL_TYPE="ALL", FROM="TLV", DATES="ALL", MAX_CALL_COUNT_PE
             new_file.write(content)
 
         try:
-            subprocess.run(["git", "add", new_filename], check=True)
-            print(f"Added {new_filename} to git")
+            # subprocess.run(["git", "add", new_filename], check=True) ########### commented out to check github actions
+            # print(f"Added {new_filename} to git")
+            pass
         except subprocess.CalledProcessError as e:
             print(f"Error adding to git: {e}")
 
         ############### Push changes to git and update site ###########
         try:
-            subprocess.run(["git", "commit", "-m", "auto site update using script"], check=True)
-            subprocess.run(["git", "push"], check=True)
-            print(f"Pushed new site to git")
+            # subprocess.run(["git", "commit", "-m", "auto site update using script"], check=True) ######### commented out to check github actions
+            # subprocess.run(["git", "push"], check=True)
+            # print(f"Pushed new site to git")
+            pass
         except subprocess.CalledProcessError as e:
             print(f"Error adding/pushing to git: {e}")
 
