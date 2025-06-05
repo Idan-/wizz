@@ -280,13 +280,12 @@ function createAirportButtons() {
             return;
         }
         const button = document.createElement('button');
-        button.className = 'airport-button selected';
+        button.className = 'airport-button';
         button.innerHTML = `
             <img src="${info.icon}" alt="${info.state} flag">
             <span>${info.city} (${code})</span>
         `;
 
-        selectedAirports.add(code);
 
         button.addEventListener('click', () => {
             if (selectedAirports.has(code)) {
@@ -308,7 +307,7 @@ function updateSelectedAirports() {
     // loop over all the .flight-card elements, if it's code is in the selectedAirports list add class SELECTED if not remove the class
     document.querySelectorAll('.flight-card').forEach(card => {
         const airportCode = card.className.split(' ')[1].replace('airport-', '');
-        if (selectedAirports.has(airportCode)) {
+        if (selectedAirports.size == 0 || selectedAirports.has(airportCode)) {
             card.classList.add('SELECTED');
         } else {
             card.classList.remove('SELECTED');
