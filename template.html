@@ -18,7 +18,25 @@
     }
     button.arrow-button:hover { background: #bbb; }
     .day-section { margin-bottom: 2rem; }
-    .day-title { font-size: 1.5rem; margin-bottom: 1rem; }
+    .day-title { 
+      font-size: 1.5rem; 
+      margin-bottom: 1rem; 
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .day-title::before {
+      content: '▼';
+      font-size: 0.8em;
+      transition: transform 0.3s ease;
+    }
+    .day-section.collapsed .day-title::before {
+      transform: rotate(-90deg);
+    }
+    .day-section.collapsed .flight-cards-container {
+      display: none;
+    }
     .flight-card {
       background: white; border-radius: 10px; padding: 1rem; margin-bottom: 1rem;
       box-shadow: 0 2px 5px rgba(0,0,0,0.1);
@@ -84,13 +102,13 @@
 </header>
 
 <div class="filters">
-  <div class="filter-group">
+  <div class="filter-group" style="display: none;">
     <label for="start-date">Start Date:</label>
     <button class="arrow-button" type="button" onclick="changeDate('start-date', -1)">⬅️</button>
     <input type="date" id="start-date" disabled />
     <button class="arrow-button" type="button" onclick="changeDate('start-date', 1)">➡️</button>
   </div>
-  <div class="filter-group">
+  <div class="filter-group" style="display: none;">
     <label for="end-date">End Date:</label>
     <button class="arrow-button" type="button" onclick="changeDate('end-date', -1)">⬅️</button>
     <input type="date" id="end-date" disabled />
@@ -191,7 +209,7 @@
   window.onload = () => {
     const today = new Date();
     const threeDaysLater = new Date();
-    threeDaysLater.setDate(today.getDate() + 3);
+    threeDaysLater.setDate(today.getDate() + 4);
     document.getElementById('start-date').value = today.toISOString().split('T')[0];
     document.getElementById('end-date').value = threeDaysLater.toISOString().split('T')[0];
     document.getElementById('start-hour').value = 0;
@@ -234,7 +252,22 @@
 
       const daySection = document.createElement('div');
       daySection.className = 'day-section';
-      daySection.innerHTML = `<div class="day-title">${dateStr}</div>`;
+      
+      // Create day title
+      const dayTitle = document.createElement('div');
+      dayTitle.className = 'day-title';
+      const dateSpan = document.createElement('span');
+      dateSpan.textContent = dateStr;
+      dayTitle.appendChild(dateSpan);
+      dayTitle.addEventListener('click', () => {
+        daySection.classList.toggle('collapsed');
+      });
+      daySection.appendChild(dayTitle);
+
+      // Create flight cards container
+      const flightCardsContainer = document.createElement('div');
+      flightCardsContainer.className = 'flight-cards-container';
+      daySection.appendChild(flightCardsContainer);
 
       flightsForDay.forEach(flightGroup => {
         flightGroup.flightsOutbound.forEach(flight => {
@@ -248,18 +281,18 @@
             return `<div class="weather-badge ${w.color}">${w.date}: ${w.description} ${w.avgTemp}</div>`;
           }).join('');
 
-          
-          const flightCard = `
-            <div class="flight-card airport-${flight.arrivalStationCode}">
-              <div class="flight-info">
-                <div><strong>From:</strong> <img width="20" height="15" src=${from.icon} /> ${from.city || ''}, ${flight.departureStationCode} (${from.name || ''}), ${from.state || ''}</div>
-                <div><strong>To:</strong> <img width="20" height="15" src=${to.icon} /> ${to.city || ''}, ${flight.arrivalStationCode} (${to.name || ''}), ${to.state || ''}</div>
-                <div><strong>Takeoff:</strong> ${flight.departure}</div>
-                <div><strong>Duration:</strong> ${flight.duration}</div>
-              </div>
-              <div class="weather-row">${weatherRow}</div>
-            </div>`;
-          daySection.innerHTML += flightCard;
+          const flightCard = document.createElement('div');
+          flightCard.className = `flight-card airport-${flight.arrivalStationCode}`;
+          flightCard.innerHTML = `
+            <div class="flight-info">
+              <div><strong>From:</strong> <img width="20" height="15" src=${from.icon} /> ${from.city || ''}, ${flight.departureStationCode} (${from.name || ''}), ${from.state || ''}</div>
+              <div><strong>To:</strong> <img width="20" height="15" src=${to.icon} /> ${to.city || ''}, ${flight.arrivalStationCode} (${to.name || ''}), ${to.state || ''}</div>
+              <div><strong>Takeoff:</strong> ${flight.departure}</div>
+              <div><strong>Duration:</strong> ${flight.duration}</div>
+            </div>
+            <div class="weather-row">${weatherRow}</div>
+          `;
+          flightCardsContainer.appendChild(flightCard);
         });
       });
 
