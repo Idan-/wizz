@@ -96,19 +96,19 @@
     <input type="date" id="end-date" disabled />
     <button class="arrow-button" type="button" onclick="changeDate('end-date', 1)">➡️</button>
   </div>
-  <div class="filter-group">
+  <div class="filter-group" style="display: none;">
     <label for="start-hour">Start Hour:</label>
     <button class="arrow-button" onclick="changeHour('start-hour', -1)">⬅️</button>
     <input type="number" id="start-hour" min="0" max="23" />
     <button class="arrow-button" onclick="changeHour('start-hour', 1)">➡️</button>
   </div>
-  <div class="filter-group">
+  <div class="filter-group" style="display: none;">
     <label for="end-hour">End Hour:</label>
     <button class="arrow-button" onclick="changeHour('end-hour', -1)">⬅️</button>
     <input type="number" id="end-hour" min="0" max="23" />
     <button class="arrow-button" onclick="changeHour('end-hour', 1)">➡️</button>
   </div>
-  <div class="filter-group">
+  <div class="filter-group" style="display: none;">
     <label for="weather-filter">Weather:</label>
     <select id="weather-filter">
       <option value="">Any</option>
