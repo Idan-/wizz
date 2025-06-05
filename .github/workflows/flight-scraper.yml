@@ -1,5 +1,9 @@
 name: Flight Scraper
 
+# Add permissions for pushing to the repository
+permissions:
+  contents: write
+
 on:
   schedule:
     - cron: '0 */12 * * *'  # Run every 4 hours
@@ -10,12 +14,12 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0  # Fetch all history for proper git operations
     
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.10'
     
