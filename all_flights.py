@@ -74,6 +74,8 @@ def get_weather_by_city(city):
 
     except requests.RequestException as e:
         print(f"Error: {e} for city {city}")
+        print(f"Response status code: {response.status_code}")
+        print(f"Response content: {response.text}")
         return None
 
 
