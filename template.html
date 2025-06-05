@@ -34,6 +34,47 @@
     @media (max-width: 600px) {
       .flight-info { flex-direction: column; gap: 0.2rem; }
     }
+
+
+    /* airports filter section */
+    .airport-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        padding: 20px;
+        
+        .airport-button {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+            background: white;
+            transition: all 0.2s;
+        }
+        .airport-button:hover {
+            background: #f0f0f0;
+        }
+        .airport-button.selected {
+            background: #e3f2fd;
+            border-color: #2196f3;
+        }
+        .airport-button img {
+            width: 20px;
+            height: 15px;
+            object-fit: cover;
+        }
+    }
+
+    .flight-card{
+      display: none;
+      &.SELECTED{
+        display:block;
+      }
+    }
+    /* end airports filter section */
   </style>
 </head>
 <body>
@@ -46,13 +87,13 @@
   <div class="filter-group">
     <label for="start-date">Start Date:</label>
     <button class="arrow-button" type="button" onclick="changeDate('start-date', -1)">⬅️</button>
-    <input type="date" id="start-date" />
+    <input type="date" id="start-date" disabled />
     <button class="arrow-button" type="button" onclick="changeDate('start-date', 1)">➡️</button>
   </div>
   <div class="filter-group">
     <label for="end-date">End Date:</label>
     <button class="arrow-button" type="button" onclick="changeDate('end-date', -1)">⬅️</button>
-    <input type="date" id="end-date" />
+    <input type="date" id="end-date" disabled />
     <button class="arrow-button" type="button" onclick="changeDate('end-date', 1)">➡️</button>
   </div>
   <div class="filter-group">
@@ -76,6 +117,7 @@
       <option value="red">Rainy</option>
     </select>
   </div>
+  <div class="airport-container" id="airportContainer"></div> <!-- Will be filled using-->
 </div>
 
 <div id="flights-container"></div>
@@ -139,63 +181,6 @@
 
 
 
-//   const airports = {
-//   "TIA": { "city": "Tirana", "state": "Albania", "name": "Tirana International Airport" },
-//   "EVN": { "city": "Yerevan", "state": "Armenia", "name": "Zvartnots International Airport" },
-//   "VIE": { "city": "Vienna", "state": "Austria", "name": "Vienna International Airport" },
-//   "GYD": { "city": "Baku", "state": "Azerbaijan", "name": "Heydar Aliyev International Airport" },
-//   "CRL": { "city": "Brussels Charleroi", "state": "Belgium", "name": "Brussels South Charleroi Airport" },
-//   "BNX": { "city": "Banja Luka", "state": "Bosnia and Herzegovina", "name": "Banja Luka International Airport" },
-//   "TZL": { "city": "Tuzla", "state": "Bosnia and Herzegovina", "name": "Tuzla International Airport" },
-//   "BOJ": { "city": "Burgas", "state": "Bulgaria", "name": "Burgas Airport" },
-//   "SOF": { "city": "Sofia", "state": "Bulgaria", "name": "Sofia Airport" },
-//   "VAR": { "city": "Varna", "state": "Bulgaria", "name": "Varna Airport" },
-//   "DBV": { "city": "Dubrovnik", "state": "Croatia", "name": "Dubrovnik Airport" },
-//   "SPU": { "city": "Split", "state": "Croatia", "name": "Split Airport" },
-//   "LCA": { "city": "Larnaca", "state": "Cyprus", "name": "Larnaca International Airport" },
-//   "PRG": { "city": "Prague", "state": "Czechia", "name": "Václav Havel Airport Prague" },
-//   "BLL": { "city": "Billund", "state": "Denmark", "name": "Billund Airport" },
-//   "CPH": { "city": "Copenhagen", "state": "Denmark", "name": "Copenhagen Airport" },
-//   "CAI": { "city": "Cairo", "state": "Egypt", "name": "Cairo International Airport" },
-//   "HEL": { "city": "Helsinki", "state": "Finland", "name": "Helsinki Airport" },
-//   "NCE": { "city": "Nice", "state": "France", "name": "Nice Côte d'Azur Airport" },
-//   "TBS": { "city": "Tbilisi", "state": "Georgia", "name": "Tbilisi International Airport" },
-//   "BER": { "city": "Berlin", "state": "Germany", "name": "Berlin Brandenburg Airport" },
-//   "ATH": { "city": "Athens", "state": "Greece", "name": "Athens International Airport" },
-//   "BUD": { "city": "Budapest", "state": "Hungary", "name": "Budapest Ferenc Liszt International Airport" },
-//   "KEF": { "city": "Reykjavik", "state": "Iceland", "name": "Keflavík International Airport" },
-//   "TLV": { "city": "Tel Aviv", "state": "Israel", "name": "Ben Gurion Airport" },
-//   "MXP": { "city": "Milan", "state": "Italy", "name": "Milan Malpensa Airport" },
-//   "RIX": { "city": "Riga", "state": "Latvia", "name": "Riga International Airport" },
-//   "VNO": { "city": "Vilnius", "state": "Lithuania", "name": "Vilnius Airport" },
-//   "MLA": { "city": "Luqa", "state": "Malta", "name": "Malta International Airport" },
-//   "KIV": { "city": "Chișinău", "state": "Moldova", "name": "Chișinău International Airport" },
-//   "TGD": { "city": "Podgorica", "state": "Montenegro", "name": "Podgorica Airport" },
-//   "CMN": { "city": "Casablanca", "state": "Morocco", "name": "Mohammed V International Airport" },
-//   "AMS": { "city": "Amsterdam", "state": "Netherlands", "name": "Amsterdam Airport Schiphol" },
-//   "OSL": { "city": "Oslo", "state": "Norway", "name": "Oslo Airport" },
-//   "WAW": { "city": "Warsaw", "state": "Poland", "name": "Warsaw Chopin Airport" },
-//   "LIS": { "city": "Lisbon", "state": "Portugal", "name": "Humberto Delgado Airport" },
-//   "SKP": { "city": "Skopje", "state": "North Macedonia", "name": "Skopje International Airport" },
-//   "OTP": { "city": "Bucharest", "state": "Romania", "name": "Henri Coandă International Airport" },
-//   "LED": { "city": "St. Petersburg", "state": "Russia", "name": "Pulkovo Airport" },
-//   "BEG": { "city": "Belgrade", "state": "Serbia", "name": "Belgrade Nikola Tesla Airport" },
-//   "BTS": { "city": "Bratislava", "state": "Slovakia", "name": "Bratislava Airport" },
-//   "LJU": { "city": "Ljubljana", "state": "Slovenia", "name": "Ljubljana Jože Pučnik Airport" },
-//   "BCN": { "city": "Barcelona", "state": "Spain", "name": "Barcelona–El Prat Airport" },
-//   "ARN": { "city": "Stockholm", "state": "Sweden", "name": "Stockholm Arlanda Airport" },
-//   "GVA": { "city": "Geneva", "state": "Switzerland", "name": "Geneva Airport" },
-//   "KBP": { "city": "Kyiv", "state": "Ukraine", "name": "Boryspil International Airport" },
-//   "AUH": { "city": "Abu Dhabi", "state": "United Arab Emirates", "name": "Abu Dhabi International Airport" },
-//   "LTN": { "city": "London", "state": "United Kingdom", "name": "London Luton Airport" },
-//   "IAS": { "city": "Iasi", "state": "Romania", "name": "Iasi Airport" },
-//   "RHO":{"city": "Rhodes", "state": "Greece", "name": "Rhodes International Airport"}, 
-//   "TIA":{"city":"Tirana","state":"Albania","name":"Tirana International Airport"},
-//   "FCO":{"city":"Rome","state":"Italy","name":"Leonardo da Vinci–Fiumicino Airport"},
-//   "LGW": { "city": "London", "state":"United Kingdom","name":"London Gatwick Airport"},
-//   "KRK":{"city":"Krakow","state":"Poland","name":"John Paul II International Airport Kraków-Balice"},
-// }
-
 
 
   const weatherData = __all_weather__
@@ -255,6 +240,7 @@
         flightGroup.flightsOutbound.forEach(flight => {
           const from = airports[flight.departureStationCode] || {};
           const to = airports[flight.arrivalStationCode] || {};
+          availableAirports.add(flight.arrivalStationCode);
           let city = to.city;
           if (city == "Milan") city = "Milano"
           const weatherRow = (weatherData[city]?.style || []).map(w => {
@@ -264,7 +250,7 @@
 
           
           const flightCard = `
-            <div class="flight-card">
+            <div class="flight-card airport-${flight.arrivalStationCode}">
               <div class="flight-info">
                 <div><strong>From:</strong> <img width="20" height="15" src=${from.icon} /> ${from.city || ''}, ${flight.departureStationCode} (${from.name || ''}), ${from.state || ''}</div>
                 <div><strong>To:</strong> <img width="20" height="15" src=${to.icon} /> ${to.city || ''}, ${flight.arrivalStationCode} (${to.name || ''}), ${to.state || ''}</div>
@@ -280,6 +266,58 @@
       container.appendChild(daySection);
     }
   }
+
+/* airport filter selection */
+const selectedAirports = new Set();
+const availableAirports = new Set();
+
+function createAirportButtons() {
+    const container = document.getElementById('airportContainer');
+
+    Object.entries(airports).forEach(([code, info]) => {
+        if (!availableAirports.has(code)) {
+            return;
+        }
+        const button = document.createElement('button');
+        button.className = 'airport-button selected';
+        button.innerHTML = `
+            <img src="${info.icon}" alt="${info.state} flag">
+            <span>${info.city} (${code})</span>
+        `;
+
+        selectedAirports.add(code);
+
+        button.addEventListener('click', () => {
+            if (selectedAirports.has(code)) {
+                selectedAirports.delete(code);
+                button.classList.remove('selected');
+            } else {
+                selectedAirports.add(code);
+                button.classList.add('selected');
+            }
+            updateSelectedAirports();
+        });
+
+        container.appendChild(button);
+    });
+    updateSelectedAirports()
+}
+
+function updateSelectedAirports() {
+    // loop over all the .flight-card elements, if it's code is in the selectedAirports list add class SELECTED if not remove the class
+    document.querySelectorAll('.flight-card').forEach(card => {
+        const airportCode = card.className.split(' ')[1].replace('airport-', '');
+        if (selectedAirports.has(airportCode)) {
+            card.classList.add('SELECTED');
+        } else {
+            card.classList.remove('SELECTED');
+        }
+    });
+}
+
+// Initialize the airport buttons when the page loads
+window.addEventListener('load', createAirportButtons);
+/* end airport filter selection */
 </script>
 
 </body>

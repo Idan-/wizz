@@ -279,7 +279,7 @@ function createAirportButtons() {
             return;
         }
         const button = document.createElement('button');
-        button.className = 'airport-button SELECTED';
+        button.className = 'airport-button selected';
         button.innerHTML = `
             <img src="${info.icon}" alt="${info.state} flag">
             <span>${info.city} (${code})</span>
