@@ -6,7 +6,7 @@ permissions:
 
 on:
   schedule:
-    - cron: '0 5,14,21 * * *'  # Run at 05:00, 14:00 and 21:00 UTC
+    - cron: '0 12 * * *'  # Run at 05:00, 14:00 and 21:00 UTC before wizz stop flighing '0 5,14,21 * * *'
   workflow_dispatch:  # Allow manual triggering
 
 jobs:
