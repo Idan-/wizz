@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Catan Board Generator</title>
+<style>
+  body {
+    font-family: sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem;
+  }
+  .board {
+    position: relative;
+    width: 800px;
+    height: 600px;
+    margin-top: 20px;
+  }
+  .hex {
+    position: absolute;
+    width: var(--hex-width);
+    height: var(--hex-height);
+    background-color: transparent;
+    clip-path: polygon(
+      50% 0%,
+      100% 25%,
+      100% 75%,
+      50% 100%,
+      0% 75%,
+      0% 25%
+    );
+    background-size: cover;
+    background-position: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    user-select: none;
+  }
+  .number {
+    font-weight: bold;
+    margin-top: 5px;
+    background: rgba(255,255,255,0.8);
+    padding: 2px 6px;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    line-height: 24px;
+    font-size: 1.1rem;
+    box-shadow: 0 0 4px rgba(0,0,0,0.3);
+    user-select: none;
+  }
+  .red-number {
+    color: #d22;
+    text-shadow: 0 0 3px #800000;
+    font-weight: bold;
+  }
+  button {
+    padding: 0.5rem 1rem;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+<h1>Catan Board Generator</h1>
+<button onclick="generateBoard()">Generate Board</button>
+<div id="board" class="board"></div>
+
+<script>
+  const TILE_COUNTS = {
+    fields: 4, forest: 4, pasture: 4,
+    hills: 3, mountains: 3, desert: 1
+  };
+
+  const NUMBER_TOKENS = [
+    2, 3, 3, 4, 4, 5, 5,
+    6, 6, 8, 8,
+    9, 9, 10, 10, 11, 11, 12
+  ];
+
+  const LAYOUT_ROWS = [3, 4, 5, 4, 3];
+
+  const HEX_WIDTH = 100;
+  const HEX_HEIGHT = Math.sqrt(3) / 2 * HEX_WIDTH;
+
+  const HORIZONTAL_SPACING_FACTOR = 0.75;
+  const VERTICAL_SPACING_FACTOR = 0.866;
+
+  const HORIZ_SPACING = HEX_WIDTH * HORIZONTAL_SPACING_FACTOR;
+  const VERT_SPACING = HEX_HEIGHT * VERTICAL_SPACING_FACTOR;
+
+  // Terrain images URLs
+  const TERRAIN_IMAGES = {
+    fields: "https://images.ctfassets.net/lemvlfz5icux/2IPjHvm6vZ2LsaHwSD9ZHH/67005f825167b46fa8fb035bd3c87983/hex.png",
+    forest: "https://images.ctfassets.net/lemvlfz5icux/6q1h9lKk8Vc9MohPWofl3Y/522e03caefe3a5e107b4e8d1feb12e7e/hex.png",
+    pasture: "https://images.ctfassets.net/lemvlfz5icux/1xgyTRcfY3RFd9wJbLpizY/1269d91ad4b24f3f243b0bf42e3e66ce/hex.png",
+    hills: "https://images.ctfassets.net/lemvlfz5icux/3Qui1G7hEmlAUydG83zmT2/af27f5ff9b308a099f2ab8a49dd4c1e5/hex.png",
+    mountains: "https://images.ctfassets.net/lemvlfz5icux/2ekieNLjvjTxVYghXHLKwX/0bf259e3a17b28646cee14eda6d341c8/hex.png",
+    desert: "https://images.ctfassets.net/lemvlfz5icux/2cwLLCBJGGk6WDkVbv2UGg/66fd42019a92bfeea19d401452e83e66/hex.png"
+  };
+
+  function shuffle(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+  }
+
+  function buildAdjacency(layoutRows) {
+    const rowStartIndices = [];
+    let sum = 0;
+    for (let r = 0; r < layoutRows.length; r++) {
+      rowStartIndices.push(sum);
+      sum += layoutRows[r];
+    }
+
+    function tileIndex(row, col) {
+      if (row < 0 || row >= layoutRows.length) return -1;
+      if (col < 0 || col >= layoutRows[row]) return -1;
+      return rowStartIndices[row] + col;
+    }
+
+    const adjacency = [];
+
+    for (let row = 0; row < layoutRows.length; row++) {
+      for (let col = 0; col < layoutRows[row]; col++) {
+        const current = tileIndex(row, col);
+        const neighbors = [];
+
+        // Same row neighbors
+        if (tileIndex(row, col - 1) !== -1) neighbors.push(tileIndex(row, col - 1));
+        if (tileIndex(row, col + 1) !== -1) neighbors.push(tileIndex(row, col + 1));
+
+        // Rows above (row-1)
+        if (row > 0) {
+          if (layoutRows[row] > layoutRows[row - 1]) {
+            if (tileIndex(row - 1, col) !== -1) neighbors.push(tileIndex(row - 1, col));
+            if (tileIndex(row - 1, col - 1) !== -1) neighbors.push(tileIndex(row - 1, col - 1));
+          } else {
+            if (tileIndex(row - 1, col) !== -1) neighbors.push(tileIndex(row - 1, col));
+            if (tileIndex(row - 1, col + 1) !== -1) neighbors.push(tileIndex(row - 1, col + 1));
+          }
+        }
+
+        // Rows below (row+1)
+        if (row < layoutRows.length - 1) {
+          if (layoutRows[row] > layoutRows[row + 1]) {
+            if (tileIndex(row + 1, col) !== -1) neighbors.push(tileIndex(row + 1, col));
+            if (tileIndex(row + 1, col - 1) !== -1) neighbors.push(tileIndex(row + 1, col - 1));
+          } else {
+            if (tileIndex(row + 1, col) !== -1) neighbors.push(tileIndex(row + 1, col));
+            if (tileIndex(row + 1, col + 1) !== -1) neighbors.push(tileIndex(row + 1, col + 1));
+          }
+        }
+
+        adjacency[current] = neighbors;
+      }
+    }
+    return adjacency;
+  }
+
+  function assignNumbers(terrains, numberTokens, adjacency) {
+    const tileCount = terrains.length;
+
+    const numberPositions = [];
+    for (let i = 0; i < tileCount; i++) {
+      if (terrains[i] !== "desert") {
+        numberPositions.push(i);
+      }
+    }
+
+    const assignedNumbers = Array(tileCount).fill(null);
+    const sixEight = new Set([6, 8]);
+    const maxTries = 5000;
+
+    for (let attempt = 0; attempt < maxTries; attempt++) {
+      const numbersShuffled = shuffle([...numberTokens]);
+
+      for (let i = 0; i < numberPositions.length; i++) {
+        assignedNumbers[numberPositions[i]] = numbersShuffled[i];
+      }
+
+      let conflict = false;
+      for (let pos of numberPositions) {
+        if (sixEight.has(assignedNumbers[pos])) {
+          for (let neighbor of adjacency[pos]) {
+            if (sixEight.has(assignedNumbers[neighbor])) {
+              conflict = true;
+              break;
+            }
+          }
+        }
+        if (conflict) break;
+      }
+
+      if (!conflict) {
+        return assignedNumbers;
+      }
+    }
+
+    console.warn("Warning: Could not assign 6/8 numbers without adjacency conflicts after many tries.");
+    const fallbackNumbers = shuffle([...numberTokens]);
+    for (let i = 0; i < numberPositions.length; i++) {
+      assignedNumbers[numberPositions[i]] = fallbackNumbers[i];
+    }
+    return assignedNumbers;
+  }
+
+  function generateBoard() {
+    const board = document.getElementById("board");
+    board.innerHTML = "";
+
+    let terrains = [];
+    for (const [type, count] of Object.entries(TILE_COUNTS)) {
+      if (type !== "desert") {
+        terrains.push(...Array(count).fill(type));
+      }
+    }
+
+    shuffle(terrains);
+
+    terrains.splice(9, 0, "desert");
+
+    const adjacency = buildAdjacency(LAYOUT_ROWS);
+    const assignedNumbers = assignNumbers(terrains, NUMBER_TOKENS, adjacency);
+
+    const centerX = 400;
+    const centerY = 300;
+    const startRow = -Math.floor(LAYOUT_ROWS.length / 2);
+
+    let tileIndex = 0;
+    LAYOUT_ROWS.forEach((tilesInRow, rowOffset) => {
+      const row = startRow + rowOffset;
+      for (let col = 0; col < tilesInRow; col++) {
+        const terrain = terrains[tileIndex];
+        const number = assignedNumbers[tileIndex];
+
+        const hex = document.createElement("div");
+        hex.className = "hex";
+        hex.style.setProperty("--hex-width", `${HEX_WIDTH}px`);
+        hex.style.setProperty("--hex-height", `${HEX_HEIGHT}px`);
+
+        // Add extra spacing: each cell shifts by 25px * col
+        const extraSpacing = col * 25;
+
+        // Push first and last row by 10px to the right
+        let rowOffsetX = 0;
+        if (rowOffset === 0 || rowOffset === LAYOUT_ROWS.length -1) {
+          rowOffsetX = 10;
+        }
+
+        const x = centerX + (col - (tilesInRow - 1) / 2) * HORIZ_SPACING + extraSpacing + rowOffsetX;
+        const y = centerY + row * VERT_SPACING;
+
+        hex.style.left = `${x}px`;
+        hex.style.top = `${y}px`;
+
+        hex.style.backgroundImage = `url(${TERRAIN_IMAGES[terrain] || ""})`;
+
+        hex.innerHTML = `
+          ${
+            number
+              ? `<div class="number ${
+                  number === 6 || number === 8 ? "red-number" : ""
+                }">${number}</div>`
+              : ""
+          }
+        `;
+
+        board.appendChild(hex);
+        tileIndex++;
+      }
+    });
+  }
+
+  window.onload = generateBoard;
+</script>
+</body>
+</html>
+
