@@ -183,7 +183,7 @@ def generate_page(ARRIVAL_TYPE="ALL", FROM="TLV", DATES="ALL", MAX_CALL_COUNT_PE
                 flight_to = airports[first_flight["arrivalStationCode"]]
             except Exception as e:
                 logger.exception(f"************************ Failed to due to missing airport code {e}")
-                logger.info(f"flight from { first_flight["departureStationCode"] } -> { first_flight["arrivalStationCode"] }")
+                logger.info(f"flight from { first_flight['departureStationCode'] } -> { first_flight['arrivalStationCode'] }")
                 continue
 
             print(f"flight from {flight_from['city']} -> {flight_to['city']}, {flight_to['state']}")
@@ -213,8 +213,8 @@ def write_html(all_flights, weather_by_city, FROM):
             new_filename = f"backup_{timestamp}.html"
             
             # Rename the file
-            os.rename("index.html", new_filename)
-            logger.info(f"Renamed to {new_filename}")
+            os.rename("index.html", f"backups_{new_filename}")
+            logger.info(f"Renamed to backups_{new_filename}")
             
             # Step 3: Add the new file to git
             # try: ##### commented out to check github actions
