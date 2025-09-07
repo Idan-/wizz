@@ -8,6 +8,8 @@ from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 import time 
 
+
+installed_updated = False
 def get_driver():
     # Load credentials from environment variables
     username = os.getenv("WIZZ_USERNAME")
@@ -20,9 +22,12 @@ def get_driver():
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--headless')
     chrome_options.add_argument('--disable-dev-shm-usage')
-
+    global installed_updated
+    if not installed_updated:
+        installed_updated = True
+        ChromeDriverManager().install()
     # Automatically download the correct ChromeDriver version
-    service = Service(ChromeDriverManager().install())
+    # service = Service(ChromeDriverManager().install())
 
     # Initialize WebDriver
     driver = webdriver.Chrome(options=chrome_options)
@@ -54,47 +59,49 @@ def get_driver():
 
 
 def get_flight_data(driver, FROM, TO, DATE):
-    script = f"""
-    return fetch("https://multipass.wizzair.com/en/w6/subscriptions/json/availability/60739699-ee6d-4039-b264-dda0652d828f", {{
-        headers: {{
-            "accept": "application/json",
-            "content-type": "application/json"
-        }},
-        method: "POST",
-        body: JSON.stringify({{
-            flightType: "OW",
-            origin: "{FROM}",
-            destination: "{TO}",
-            departure: "{DATE}",
-            arrival: "",
-            intervalSubtype: null
-        }})
-    }}).then(response => response.json());
-    """
+    try_count = 0
+    bad_result_text = "Please try again in a few moments"
+    while try_count < 5:
+        try_count += 1
 
-    result = driver.execute_async_script("""
-        const callback = arguments[arguments.length - 1];
-        fetch(arguments[0], {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Accept": "application/json"
-            },
-            body: JSON.stringify(arguments[1])
-        })
-        .then(response => response.json())
-        .then(data => callback(data))
-        .catch(err => callback({"error": err.toString()}));
-    """, 
-        "https://multipass.wizzair.com/en/w6/subscriptions/json/availability/60739699-ee6d-4039-b264-dda0652d828f",
-        {
-            "flightType": "OW",
-            "origin": FROM,
-            "destination": TO,
-            "departure": DATE,
-            "arrival": "",
-            "intervalSubtype": None
-        }
-    )
+        result = driver.execute_async_script("""
+            const callback = arguments[arguments.length - 1];
+            fetch(arguments[0], {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json"
+                },
+                body: JSON.stringify(arguments[1])
+            })
+            .then(response => response.text()) // read as raw text for case of problem in the http request
+            .then(text => {
+                try {
+                    const json = JSON.parse(text); // try to convert to json
+                    callback(json);
+                } catch (e) {
+                    callback(text); // if it's not json, return the raw text
+                }
+            })
+            .catch(err => callback({"error": err.stack || err.toString()}));
+        """, 
+            "https://multipass.wizzair.com/en/w6/subscriptions/json/availability/60739699-ee6d-4039-b264-dda0652d828f",
+            {
+                "flightType": "OW",
+                "origin": FROM,
+                "destination": TO,
+                "departure": DATE,
+                "arrival": "",
+                "intervalSubtype": None
+            }
+        )
+
+        if bad_result_text not in result:
+            break # continue the loop only if the website asked for it
+        print(f"******************* sleeping for site request with {FROM=} {TO=} {DATE=} got bad HTML response")
+        # driver.close()
+        time.sleep(121)
+        driver = get_driver()
+        time.sleep(5)
 
     return result
