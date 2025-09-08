@@ -8,12 +8,12 @@ from data import airports, CVO
 from selenium_driver import get_driver, get_flight_data
 import argparse
 import shutil
-import logging
+from logger import logger
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+
+
 
 DEBUG = False
 
@@ -94,7 +94,6 @@ all_options = {}              # object to store all the results
 
 def generate_page(ARRIVAL_TYPE="ALL", FROM="TLV", DATES="ALL", MAX_CALL_COUNT_PER_DATE=999):
     global weather_by_city # as we set this variable for debug we must state it's global
-    # print(f"running with {xsrf=} {laravel_session=}")
     all_options = {}
 
     if DATES == "ALL":
@@ -130,7 +129,7 @@ def generate_page(ARRIVAL_TYPE="ALL", FROM="TLV", DATES="ALL", MAX_CALL_COUNT_PE
                 try:
                     logger.info(f"get flight data with {FROM=} {TO=} {d}")
                     data_for_date = get_flight_data(driver, FROM, TO, d)
-                    logger.info(f"result {data_for_date=}")
+                    logger.info(f"result {FROM=} {TO=} {d} {data_for_date=}")
                     if "code" in data_for_date:
                         if data_for_date["code"] == "error.availability":
                             continue
@@ -166,15 +165,14 @@ def generate_page(ARRIVAL_TYPE="ALL", FROM="TLV", DATES="ALL", MAX_CALL_COUNT_PE
     else: # if debug
         weather_by_city = {'Milano': {'text': 'Forecast: 2025-06-05: 19°C, Patchy rain nearby || 2025-06-06: 21°C, Patchy rain nearby || 2025-06-07: 22°C, Partly Cloudy  || ', 'style': [{'date': '2025-06-05', 'description': 'Patchy rain nearby', 'color': '#cbcb4b', 'avgTemp': '19°C'}, {'date': '2025-06-06', 'description': 'Patchy rain nearby', 'color': '#cbcb4b', 'avgTemp': '21°C'}, {'date': '2025-06-07', 'description': 'Partly Cloudy ', 'color': '#cbcb4b', 'avgTemp': '22°C'}]}, 'Rome': {'text': 'Forecast: 2025-06-05: 23°C, Patchy rain nearby || 2025-06-06: 23°C, Sunny || 2025-06-07: 24°C, Sunny || ', 'style': [{'date': '2025-06-05', 'description': 'Patchy rain nearby', 'color': '#cbcb4b', 'avgTemp': '23°C'}, {'date': '2025-06-06', 'description': 'Sunny', 'color': 'green', 'avgTemp': '23°C'}, {'date': '2025-06-07', 'description': 'Sunny', 'color': 'green', 'avgTemp': '24°C'}]}, 'Larnaca': {'text': 'Forecast: 2025-06-05: 24°C, Sunny || 2025-06-06: 24°C, Sunny || 2025-06-07: 24°C, Sunny || ', 'style': [{'date': '2025-06-05', 'description': 'Sunny', 'color': 'green', 'avgTemp': '24°C'}, {'date': '2025-06-06', 'description': 'Sunny', 'color': 'green', 'avgTemp': '24°C'}, {'date': '2025-06-07', 'description': 'Sunny', 'color': 'green', 'avgTemp': '24°C'}]}, 'London': {'text': 'Forecast: 2025-06-05: 13°C, Light rain shower || 2025-06-06: 14°C, Patchy rain nearby || 2025-06-07: 14°C, Patchy light rain || ', 'style': [{'date': '2025-06-05', 'description': 'Light rain shower', 'color': 'red', 'avgTemp': '13°C'}, {'date': '2025-06-06', 'description': 'Patchy rain nearby', 'color': '#cbcb4b', 'avgTemp': '14°C'}, {'date': '2025-06-07', 'description': 'Patchy light rain', 'color': 'red', 'avgTemp': '14°C'}]}, 'Warsaw': {'text': 'Forecast: 2025-06-05: 21°C, Patchy rain nearby || 2025-06-06: 21°C, Patchy rain nearby || 2025-06-07: 19°C, Patchy rain nearby || ', 'style': [{'date': '2025-06-05', 'description': 'Patchy rain nearby', 'color': '#cbcb4b', 'avgTemp': '21°C'}, {'date': '2025-06-06', 'description': 'Patchy rain nearby', 'color': '#cbcb4b', 'avgTemp': '21°C'}, {'date': '2025-06-07', 'description': 'Patchy rain nearby', 'color': '#cbcb4b', 'avgTemp': '19°C'}]}, 'Abu Dhabi': {'text': 'Forecast: 2025-06-05: 30°C, Sunny || 2025-06-06: 30°C, Sunny || 2025-06-07: 30°C, Sunny || ', 'style': [{'date': '2025-06-05', 'description': 'Sunny', 'color': 'green', 'avgTemp': '30°C'}, {'date': '2025-06-06', 'description': 'Sunny', 'color': 'green', 'avgTemp': '30°C'}, {'date': '2025-06-07', 'description': 'Sunny', 'color': 'green', 'avgTemp': '30°C'}]}, 'Bucharest': {'text': 'Forecast: 2025-06-05: 25°C, Sunny || 2025-06-06: 25°C, Sunny || 2025-06-07: 23°C, Sunny || ', 'style': [{'date': '2025-06-05', 'description': 'Sunny', 'color': 'green', 'avgTemp': '25°C'}, {'date': '2025-06-06', 'description': 'Sunny', 'color': 'green', 'avgTemp': '25°C'}, {'date': '2025-06-07', 'description': 'Sunny', 'color': 'green', 'avgTemp': '23°C'}]}, 'Budapest': {'text': 'Forecast: 2025-06-05: 25°C, Sunny || 2025-06-06: 25°C, Sunny || 2025-06-07: 26°C, Sunny || ', 'style': [{'date': '2025-06-05', 'description': 'Sunny', 'color': 'green', 'avgTemp': '25°C'}, {'date': '2025-06-06', 'description': 'Sunny', 'color': 'green', 'avgTemp': '25°C'}, {'date': '2025-06-07', 'description': 'Sunny', 'color': 'green', 'avgTemp': '26°C'}]}, 'Vienna': {'text': 'Forecast: 2025-06-05: 22°C, Partly Cloudy  || 2025-06-06: 22°C, Partly Cloudy  || 2025-06-07: 20°C, Cloudy  || ', 'style': [{'date': '2025-06-05', 'description': 'Partly Cloudy ', 'color': '#cbcb4b', 'avgTemp': '22°C'}, {'date': '2025-06-06', 'description': 'Partly Cloudy ', 'color': '#cbcb4b', 'avgTemp': '22°C'}, {'date': '2025-06-07', 'description': 'Cloudy ', 'color': '#cbcb4b', 'avgTemp': '20°C'}]}, 'Vilnius': {'text': 'Forecast: 2025-06-05: 18°C, Moderate or heavy rain with thunder || 2025-06-06: 18°C, Light rain shower || 2025-06-07: 17°C, Partly Cloudy  || ', 'style': [{'date': '2025-06-05', 'description': 'Moderate or heavy rain with thunder', 'color': 'red', 'avgTemp': '18°C'}, {'date': '2025-06-06', 'description': 'Light rain shower', 'color': 'red', 'avgTemp': '18°C'}, {'date': '2025-06-07', 'description': 'Partly Cloudy ', 'color': '#cbcb4b', 'avgTemp': '17°C'}]}, 'Athens': {'text': 'Forecast: 2025-06-05: 24°C, Cloudy  || 2025-06-06: 26°C, Partly Cloudy  || 2025-06-07: 27°C, Partly Cloudy  || ', 'style': [{'date': '2025-06-05', 'description': 'Cloudy ', 'color': '#cbcb4b', 'avgTemp': '24°C'}, {'date': '2025-06-06', 'description': 'Partly Cloudy ', 'color': '#cbcb4b', 'avgTemp': '26°C'}, {'date': '2025-06-07', 'description': 'Partly Cloudy ', 'color': '#cbcb4b', 'avgTemp': '27°C'}]}, 'Iasi': {'text': 'Forecast: 2025-06-05: 23°C, Sunny || 2025-06-06: 23°C, Sunny || 2025-06-07: 23°C, Sunny || ', 'style': [{'date': '2025-06-05', 'description': 'Sunny', 'color': 'green', 'avgTemp': '23°C'}, {'date': '2025-06-06', 'description': 'Sunny', 'color': 'green', 'avgTemp': '23°C'}, {'date': '2025-06-07', 'description': 'Sunny', 'color': 'green', 'avgTemp': '23°C'}]}, 'Krakow': {'text': 'Forecast: 2025-06-05: 20°C, Partly Cloudy  || 2025-06-06: 20°C, Sunny || 2025-06-07: 18°C, Partly Cloudy  || ', 'style': [{'date': '2025-06-05', 'description': 'Partly Cloudy ', 'color': '#cbcb4b', 'avgTemp': '20°C'}, {'date': '2025-06-06', 'description': 'Sunny', 'color': 'green', 'avgTemp': '20°C'}, {'date': '2025-06-07', 'description': 'Partly Cloudy ', 'color': '#cbcb4b', 'avgTemp': '18°C'}]}, 'Rhodes': {'text': 'Forecast: 2025-06-05: 15°C, Patchy rain nearby || 2025-06-06: 15°C, Patchy rain nearby || 2025-06-07: 16°C, Sunny || ', 'style': [{'date': '2025-06-05', 'description': 'Patchy rain nearby', 'color': '#cbcb4b', 'avgTemp': '15°C'}, {'date': '2025-06-06', 'description': 'Patchy rain nearby', 'color': '#cbcb4b', 'avgTemp': '15°C'}, {'date': '2025-06-07', 'description': 'Sunny', 'color': 'green', 'avgTemp': '16°C'}]}}
 
-    print("after getting all weather data")
+    logger.info("after getting all weather data")
     # breakpoint()
     for cur_date, options_by_date in all_options.items():
         options_by_date = [opt for opt in options_by_date if not opt.get("message")]
         if not options_by_date:
             continue  # skip date with no options
 
-        print()
-        print(f"Running for date {cur_date}")
+        logger.info(f"Running for date {cur_date}")
 
         for option in options_by_date:
             try:
@@ -186,7 +184,7 @@ def generate_page(ARRIVAL_TYPE="ALL", FROM="TLV", DATES="ALL", MAX_CALL_COUNT_PE
                 logger.info(f"flight from { first_flight['departureStationCode'] } -> { first_flight['arrivalStationCode'] }")
                 continue
 
-            print(f"flight from {flight_from['city']} -> {flight_to['city']}, {flight_to['state']}")
+            logger.info(f"flight from {flight_from['city']} -> {flight_to['city']}, {flight_to['state']}")
 
             try:
                 logger.info("getting weather")
@@ -213,15 +211,9 @@ def write_html(all_flights, weather_by_city, FROM):
             new_filename = f"backup_{timestamp}.html"
             
             # Rename the file
-            os.rename("index.html", f"backups_{new_filename}")
-            logger.info(f"Renamed to backups_{new_filename}")
+            os.rename("index.html", f"backups/{new_filename}")
+            logger.info(f"Renamed to backups/{new_filename}")
             
-            # Step 3: Add the new file to git
-            # try: ##### commented out to check github actions
-            #     subprocess.run(["git", "add", new_filename], check=True)
-            #     print(f"Added {new_filename} to git")
-            # except subprocess.CalledProcessError as e:
-            #     print(f"Error adding to git: {e}")
         else:
             logger.info("index.html does not exist.")
 
@@ -246,21 +238,6 @@ def write_html(all_flights, weather_by_city, FROM):
             new_file.write(content)
         shutil.copy("index.html", f"index_{FROM}.html")
 
-        try:
-            # subprocess.run(["git", "add", new_filename], check=True) ########### commented out to check github actions
-            # print(f"Added {new_filename} to git")
-            pass
-        except subprocess.CalledProcessError as e:
-            logger.exception(f"Error adding to git")
-
-        ############### Push changes to git and update site ###########
-        try:
-            # subprocess.run(["git", "commit", "-m", "auto site update using script"], check=True) ######### commented out to check github actions
-            # subprocess.run(["git", "push"], check=True)
-            # print(f"Pushed new site to git")
-            pass
-        except subprocess.CalledProcessError as e:
-            logger.exception(f"Error adding/pushing to git")
 
 
 # Get run variable arguments from command line

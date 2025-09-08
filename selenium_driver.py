@@ -7,7 +7,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 import time 
-
+from logger import logger
 
 installed_updated = False
 def get_driver():
@@ -98,7 +98,7 @@ def get_flight_data(driver, FROM, TO, DATE):
 
         if bad_result_text not in result:
             break # continue the loop only if the website asked for it
-        print(f"******************* sleeping for site request with {FROM=} {TO=} {DATE=} got bad HTML response")
+        logger.info(f"******************* sleeping for site request with {FROM=} {TO=} {DATE=} got bad HTML response")
         # driver.close()
         time.sleep(121)
         driver = get_driver()
