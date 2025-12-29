@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Flight Schedule</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: Arial, sans-serif; padding: 1rem; background: #f5f5f5; }
+    header { text-align: center; margin-bottom: 2rem; }
+    .filters { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: center; margin-bottom: 2rem; }
+    .filter-group { display: flex; align-items: center; gap: 0.3rem; }
+    label { font-size: 0.9rem; display: flex; flex-direction: column; }
+    input[type="date"], input[type="number"], select {
+      font-size: 1rem; padding: 0.3rem 0.5rem; border-radius: 4px; border: 1px solid #ccc;
+    }
+    button.arrow-button {
+      padding: 3px 7px; cursor: pointer; background: #ddd; border: null; border-radius: 3px; font-size: 1.1rem;
+    }
+    button.arrow-button:hover { background: #bbb; }
+    .day-section { margin-bottom: 2rem; }
+    .day-title { 
+      font-size: 1.5rem; 
+      margin-bottom: 1rem; 
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .day-title::before {
+      content: '▼';
+      font-size: 0.8em;
+      transition: transform 0.3s ease;
+    }
+    .day-section.collapsed .day-title::before {
+      transform: rotate(-90deg);
+    }
+    .day-section.collapsed .flight-cards-container {
+      display: none;
+    }
+    .flight-card {
+      background: white; border-radius: 10px; padding: 1rem; margin-bottom: 1rem;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .flight-info { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem; font-size: 0.95rem; }
+    .weather-row { display: flex; gap: 1rem; margin-top: 0.5rem; flex-wrap: wrap; }
+    .weather-badge {
+      padding: 0.3rem 0.7rem; border-radius: 5px; color: #333; font-size: 0.85rem;
+    }
+    .green { background-color: #d4edda; }
+    .yellow { background-color: #fff3cd; }
+    .red { background-color: #f8d7da; }
+    @media (max-width: 600px) {
+      .flight-info { flex-direction: column; gap: 0.2rem; }
+    }
+
+
+    /* airports filter section */
+    .airport-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        padding: 20px;
+        
+        .airport-button {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+            background: white;
+            transition: all 0.2s;
+        }
+        .airport-button:hover {
+            background: #f0f0f0;
+        }
+        .airport-button.selected {
+            background: #e3f2fd;
+            border-color: #2196f3;
+        }
+        .airport-button img {
+            width: 20px;
+            height: 15px;
+            object-fit: cover;
+        }
+    }
+
+    .flight-card{
+      display: none;
+      &.SELECTED{
+        display:block;
+      }
+    }
+    /* end airports filter section */
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Upcoming Flights - Next 3 Days</h1>
+</header>
+
+<div class="filters">
+  <div class="filter-group" style="display: none;">
+    <label for="start-date">Start Date:</label>
+    <button class="arrow-button" type="button" onclick="changeDate('start-date', -1)">⬅️</button>
+    <input type="date" id="start-date" disabled />
+    <button class="arrow-button" type="button" onclick="changeDate('start-date', 1)">➡️</button>
+  </div>
+  <div class="filter-group" style="display: none;">
+    <label for="end-date">End Date:</label>
+    <button class="arrow-button" type="button" onclick="changeDate('end-date', -1)">⬅️</button>
+    <input type="date" id="end-date" disabled />
+    <button class="arrow-button" type="button" onclick="changeDate('end-date', 1)">➡️</button>
+  </div>
+  <div class="filter-group" style="display: none;">
+    <label for="start-hour">Start Hour:</label>
+    <button class="arrow-button" onclick="changeHour('start-hour', -1)">⬅️</button>
+    <input type="number" id="start-hour" min="0" max="23" />
+    <button class="arrow-button" onclick="changeHour('start-hour', 1)">➡️</button>
+  </div>
+  <div class="filter-group" style="display: none;">
+    <label for="end-hour">End Hour:</label>
+    <button class="arrow-button" onclick="changeHour('end-hour', -1)">⬅️</button>
+    <input type="number" id="end-hour" min="0" max="23" />
+    <button class="arrow-button" onclick="changeHour('end-hour', 1)">➡️</button>
+  </div>
+  <div class="filter-group" style="display: none;">
+    <label for="weather-filter">Weather:</label>
+    <select id="weather-filter">
+      <option value="">Any</option>
+      <option value="green">Good</option>
+      <option value="yellow">Bit Rainy</option>
+      <option value="red">Rainy</option>
+    </select>
+  </div>
+  <div class="airport-container" id="airportContainer"></div> <!-- Will be filled using-->
+</div>
+
+<div id="flights-container"></div>
+
+<script>
+  airports = {
+    "FNC": {"city": "Santa Cruz", "state": "Portugal", "name": "Madeira Airport", "utc_offset": "+0", "icon": "https://flagcdn.com/w40/pt.png"},
+    "JTR": {"city": "Santorini (Thira)", "state": "Greece", "name": "Santorini International Airport (Thira)", "utc_offset": "+2", "icon": "https://flagcdn.com/w40/gr.png"},
+    "SPX": {"city": "Giza / Greater Cairo", "state": "Egypt", "name": "Sphinx International Airport", "utc_offset": "+2", "icon": "https://flagcdn.com/w40/eg.png"},
+    "GOA": {"city": "Genoa (Genova)", "state": "Italy", "name": "Genoa Cristoforo Colombo Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/it.png"},
+    "JED": {"city": "Jeddah", "state": "Saudi Arabia", "name": "King Abdulaziz International Airport", "utc_offset": "+3", "icon": "https://flagcdn.com/w40/sa.png"},
+    "CFU": {"city": "Corfu (Kerkyra)", "state": "Greece", "name": "Corfu International Airport \"Ioannis Kapodistrias\"", "utc_offset": "+2", "icon": "https://flagcdn.com/w40/gr.png"},
+    "TGM": {"city": "Târgu Mureș", "state": "Romania", "name": "Târgu Mureș Transilvania (Târgu Mureș) Airport", "utc_offset": "+2", "icon": "https://flagcdn.com/w40/ro.png"},
+    "GYD": {"city": "Baku", "state": "Azerbaijan", "name": "Heydar Aliyev International Airport", "utc_offset": "+4", "icon": "https://flagcdn.com/w40/az.png"},
+    "AGP": {"city": "Málaga", "state": "Spain", "name": "Málaga-Costa del Sol Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/es.png"},
+    "ALC": {"city": "Alicante", "state": "Spain", "name": "Alicante-Elche Miguel Hernández Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/es.png"},
+    "RAK": {"city": "Marrakesh", "state": "Morocco", "name": "Marrakesh Menara Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/ma.png"},
+    "ZTH": {"city": "Zakynthos", "state": "Greece", "name": "Zakynthos International Airport", "utc_offset": "+2", "icon": "https://flagcdn.com/w40/gr.png"},
+    "RMO": {"city": "Chișinău", "state": "Moldova", "name": "Chișinău International Airport", "utc_offset": "+2", "icon": "https://flagcdn.com/w40/md.png"},
+    "TLV": {"city": "Tel Aviv", "state": "Israel", "name": "Ben Gurion Airport", "utc_offset": "+2", "icon": "https://flagcdn.com/w40/il.png"},
+    "AUH": {"city": "Abu Dhabi", "state": "United Arab Emirates", "name": "Zayed International Airport", "utc_offset": "+4", "icon": "https://flagcdn.com/w40/ae.png"},
+    "GHV": {"city": "Brasov", "state": "Romania", "name": "Brașov-Ghimbav International Airport", "utc_offset": "+2", "icon": "https://flagcdn.com/w40/ro.png"},
+    "RHO": {"city": "Rhodes", "state": "Greece", "name": "Rhodes International Airport", "utc_offset": "+2", "icon": "https://flagcdn.com/w40/gr.png"},
+    "MXP": {"city": "Milano", "state": "Italy", "name": "Milano Malpensa Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/it.png"},
+    "TIA": {"city": "Tirana", "state": "Albania", "name": "Tirana International Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/al.png"},
+    "EVN": {"city": "Yerevan", "state": "Armenia", "name": "Zvartnots International Airport", "utc_offset": "+4", "icon": "https://flagcdn.com/w40/am.png"},
+    "VIE": {"city": "Vienna", "state": "Austria", "name": "Vienna International Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/at.png"},
+    "SJJ": {"city": "Sarajevo", "state": "Bosnia and Herzegovina", "name": "Sarajevo International Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/ba.png"},
+    "TZL": {"city": "Tuzla", "state": "Bosnia and Herzegovina", "name": "Tuzla International Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/ba.png"},
+    "SOF": {"city": "Sofia", "state": "Bulgaria", "name": "Sofia Airport", "utc_offset": "+2", "icon": "https://flagcdn.com/w40/bg.png"},
+    "VAR": {"city": "Varna", "state": "Bulgaria", "name": "Varna Airport", "utc_offset": "+2", "icon": "https://flagcdn.com/w40/bg.png"},
+    "BOJ": {"city": "Burgas", "state": "Bulgaria", "name": "Burgas Airport", "utc_offset": "+2", "icon": "https://flagcdn.com/w40/bg.png"},
+    "ZAG": {"city": "Zagreb", "state": "Croatia", "name": "Zagreb Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/hr.png"},
+    "SPU": {"city": "Split", "state": "Croatia", "name": "Split Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/hr.png"},
+    "LCA": {"city": "Larnaca", "state": "Cyprus", "name": "Larnaca International Airport", "utc_offset": "+2", "icon": "https://flagcdn.com/w40/cy.png"},
+    "PRG": {"city": "Prague", "state": "Czech Republic", "name": "Václav Havel Airport Prague", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/cz.png"},
+    "BRQ": {"city": "Brno", "state": "Czech Republic", "name": "Brno–Tuřany Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/cz.png"},
+    "CPH": {"city": "Copenhagen", "state": "Denmark", "name": "Copenhagen Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/dk.png"},
+    "TLL": {"city": "Tallinn", "state": "Estonia", "name": "Tallinn Airport", "utc_offset": "+2", "icon": "https://flagcdn.com/w40/ee.png"},
+    "HEL": {"city": "Helsinki", "state": "Finland", "name": "Helsinki Airport", "utc_offset": "+2", "icon": "https://flagcdn.com/w40/fi.png"},
+    "TKU": {"city": "Turku", "state": "Finland", "name": "Turku Airport", "utc_offset": "+2", "icon": "https://flagcdn.com/w40/fi.png"},
+    "CDG": {"city": "Paris", "state": "France", "name": "Charles de Gaulle Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/fr.png"},
+    "BVA": {"city": "Paris", "state": "France", "name": "Beauvais-Tillé Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/fr.png"},
+    "MLH": {"city": "Mulhouse", "state": "France", "name": "EuroAirport Basel Mulhouse Freiburg", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/fr.png"},
+    "KUT": {"city": "Kutaisi", "state": "Georgia", "name": "Kutaisi International Airport", "utc_offset": "+4", "icon": "https://flagcdn.com/w40/ge.png"},
+    "TBS": {"city": "Tbilisi", "state": "Georgia", "name": "Shota Rustaveli Tbilisi International Airport", "utc_offset": "+4", "icon": "https://flagcdn.com/w40/ge.png"},
+    "BER": {"city": "Berlin", "state": "Germany", "name": "Berlin Brandenburg Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/de.png"},
+    "CGN": {"city": "Cologne", "state": "Germany", "name": "Cologne Bonn Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/de.png"},
+    "DTM": {"city": "Dortmund", "state": "Germany", "name": "Dortmund Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/de.png"},
+    "FDH": {"city": "Friedrichshafen", "state": "Germany", "name": "Friedrichshafen Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/de.png"},
+    "FMM": {"city": "Memmingen", "state": "Germany", "name": "Memmingen Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/de.png"},
+    "HAM": {"city": "Hamburg", "state": "Germany", "name": "Hamburg Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/de.png"},
+    "NUE": {"city": "Nuremberg", "state": "Germany", "name": "Nuremberg Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/de.png"},
+    "ATH": {"city": "Athens", "state": "Greece", "name": "Athens International Airport", "utc_offset": "+2", "icon": "https://flagcdn.com/w40/gr.png"},
+    "SKG": {"city": "Thessaloniki", "state": "Greece", "name": "Thessaloniki Airport", "utc_offset": "+2", "icon": "https://flagcdn.com/w40/gr.png"},
+    "BUD": {"city": "Budapest", "state": "Hungary", "name": "Budapest Ferenc Liszt International Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/hu.png"},
+    "DEB": {"city": "Debrecen", "state": "Hungary", "name": "Debrecen International Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/hu.png"},
+    "KEF": {"city": "Reykjavik", "state": "Iceland", "name": "Keflavík International Airport", "utc_offset": "+0", "icon": "https://flagcdn.com/w40/is.png"},
+    "BGY": {"city": "Milan", "state": "Italy", "name": "Milan Bergamo Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/it.png"},
+    "BLQ": {"city": "Bologna", "state": "Italy", "name": "Bologna Guglielmo Marconi Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/it.png"},
+    "BRI": {"city": "Bari", "state": "Italy", "name": "Bari Karol Wojtyła Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/it.png"},
+    "CTA": {"city": "Catania", "state": "Italy", "name": "Catania-Fontanarossa Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/it.png"},
+    "FCO": {"city": "Rome", "state": "Italy", "name": "Leonardo da Vinci–Fiumicino Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/it.png"},
+    "NAP": {"city": "Naples", "state": "Italy", "name": "Naples International Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/it.png"},
+    "PSA": {"city": "Pisa", "state": "Italy", "name": "Pisa International Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/it.png"},
+    "PMO": {"city": "Palermo", "state": "Italy", "name": "Palermo Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/it.png"},
+    "VCE": {"city": "Venice", "state": "Italy", "name": "Venice Marco Polo Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/it.png"},
+    "NUR": {"city": "Nur-Sultan", "state": "Kazakhstan", "name": "Nur-Sultan Nazarbayev International Airport", "utc_offset": "+6", "icon": "https://flagcdn.com/w40/kz.png"},
+    "RIX": {"city": "Riga", "state": "Latvia", "name": "Riga International Airport", "utc_offset": "+2", "icon": "https://flagcdn.com/w40/lv.png"},
+    "VNO": {"city": "Vilnius", "state": "Lithuania", "name": "Vilnius Airport", "utc_offset": "+2", "icon": "https://flagcdn.com/w40/lt.png"},
+    "KUN": {"city": "Kaunas", "state": "Lithuania", "name": "Kaunas Airport", "utc_offset": "+2", "icon": "https://flagcdn.com/w40/lt.png"},
+    "LUX": {"city": "Luxembourg", "state": "Luxembourg", "name": "Luxembourg Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/lu.png"},
+    "SKP": {"city": "Skopje", "state": "North Macedonia", "name": "Skopje Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/mk.png"},
+    "MLA": {"city": "Malta", "state": "Malta", "name": "Malta International Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/mt.png"},
+    "KIV": {"city": "Chisinau", "state": "Moldova", "name": "Chișinău International Airport", "utc_offset": "+2", "icon": "https://flagcdn.com/w40/md.png"},
+    "TGD": {"city": "Podgorica", "state": "Montenegro", "name": "Podgorica Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/me.png"},
+    "AMS": {"city": "Amsterdam", "state": "Netherlands", "name": "Amsterdam Airport Schiphol", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/nl.png"},
+    "EIN": {"city": "Eindhoven", "state": "Netherlands", "name": "Eindhoven Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/nl.png"},
+    "OSL": {"city": "Oslo", "state": "Norway", "name": "Oslo Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/no.png"},
+    "TRF": {"city": "Sandefjord", "state": "Norway", "name": "Sandefjord Airport Torp", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/no.png"},
+    "BGO": {"city": "Bergen", "state": "Norway", "name": "Bergen Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/no.png"},
+    "GDN": {"city": "Gdansk", "state": "Poland", "name": "Gdańsk Lech Wałęsa Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/pl.png"},
+    "KTW": {"city": "Katowice", "state": "Poland", "name": "Katowice Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/pl.png"},
+    "KRK": {"city": "Krakow", "state": "Poland", "name": "John Paul II International Airport Kraków-Balice", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/pl.png"},
+    "POZ": {"city": "Poznan", "state": "Poland", "name": "Poznań-Ławica Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/pl.png"},
+    "RZE": {"city": "Rzeszow", "state": "Poland", "name": "Rzeszów-Jasionka Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/pl.png"},
+    "WAW": {"city": "Warsaw", "state": "Poland", "name": "Warsaw Chopin Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/pl.png"},
+    "WMI": {"city": "Warsaw", "state": "Poland", "name": "Warsaw Modlin Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/pl.png"},
+    "WRO": {"city": "Wroclaw", "state": "Poland", "name": "Wrocław Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/pl.png"},
+    "LIS": {"city": "Lisbon", "state": "Portugal", "name": "Lisbon Airport", "utc_offset": "+0", "icon": "https://flagcdn.com/w40/pt.png"},
+    "OPO": {"city": "Porto", "state": "Portugal", "name": "Francisco Sá Carneiro Airport", "utc_offset": "+0", "icon": "https://flagcdn.com/w40/pt.png"},
+    "BBU": {"city": "Bucharest", "state": "Romania", "name": "Aurel Vlaicu International Airport", "utc_offset": "+2", "icon": "https://flagcdn.com/w40/ro.png"},
+    "OTP": {"city": "Bucharest", "state": "Romania", "name": "Henri Coandă International Airport", "utc_offset": "+2", "icon": "https://flagcdn.com/w40/ro.png"},
+    "CLJ": {"city": "Cluj-Napoca", "state": "Romania", "name": "Cluj-Napoca International Airport", "utc_offset": "+2", "icon": "https://flagcdn.com/w40/ro.png"},
+    "CRA": {"city": "Craiova", "state": "Romania", "name": "Craiova Airport", "utc_offset": "+2", "icon": "https://flagcdn.com/w40/ro.png"},
+    "IAS": {"city": "Iasi", "state": "Romania", "name": "Iași International Airport", "utc_offset": "+2", "icon": "https://flagcdn.com/w40/ro.png"},
+    "TSR": {"city": "Timisoara", "state": "Romania", "name": "Timișoara Traian Vuia International Airport", "utc_offset": "+2", "icon": "https://flagcdn.com/w40/ro.png"},
+    "BEG": {"city": "Belgrade", "state": "Serbia", "name": "Belgrade Nikola Tesla Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/rs.png"},
+    "INI": {"city": "Nis", "state": "Serbia", "name": "Niš Constantine the Great Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/rs.png"},
+    "BTS": {"city": "Bratislava", "state": "Slovakia", "name": "M. R. Štefánik Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/sk.png"},
+    "KSC": {"city": "Kosice", "state": "Slovakia", "name": "Košice International Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/sk.png"},
+    "LJU": {"city": "Ljubljana", "state": "Slovenia", "name": "Ljubljana Jože Pučnik Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/si.png"},
+    "BCN": {"city": "Barcelona", "state": "Spain", "name": "Barcelona–El Prat Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/es.png"},
+    "BIO": {"city": "Bilbao", "state": "Spain", "name": "Bilbao Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/es.png"},
+    "LPA": {"city": "Las Palmas", "state": "Spain", "name": "Las Palmas Airport", "utc_offset": "+0", "icon": "https://flagcdn.com/w40/es.png"},
+    "MAD": {"city": "Madrid", "state": "Spain", "name": "Adolfo Suárez Madrid–Barajas Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/es.png"},
+    "PMI": {"city": "Palma", "state": "Spain", "name": "Palma de Mallorca Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/es.png"},
+    "SVQ": {"city": "Seville", "state": "Spain", "name": "Seville Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/es.png"},
+    "TFS": {"city": "Tenerife", "state": "Spain", "name": "Tenerife South Airport", "utc_offset": "+0", "icon": "https://flagcdn.com/w40/es.png"},
+    "VLC": {"city": "Valencia", "state": "Spain", "name": "Valencia Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/es.png"},
+    "ARN": {"city": "Stockholm", "state": "Sweden", "name": "Stockholm Arlanda Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/se.png"},
+    "GOT": {"city": "Gothenburg", "state": "Sweden", "name": "Gothenburg Landvetter Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/se.png"},
+    "MMX": {"city": "Malmö", "state": "Sweden", "name": "Malmö Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/se.png"},
+    "GVA": {"city": "Geneva", "state": "Switzerland", "name": "Geneva Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/ch.png"},
+    "ZUR": {"city": "Zurich", "state": "Switzerland", "name": "Zurich Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/ch.png"},
+    "ESB": {"city": "Ankara", "state": "Turkey", "name": "Esenboğa International Airport", "utc_offset": "+3", "icon": "https://flagcdn.com/w40/tr.png"},
+    "ADB": {"city": "Izmir", "state": "Turkey", "name": "Adnan Menderes Airport", "utc_offset": "+3", "icon": "https://flagcdn.com/w40/tr.png"},
+    "IST": {"city": "Istanbul", "state": "Turkey", "name": "Istanbul Airport", "utc_offset": "+3", "icon": "https://flagcdn.com/w40/tr.png"},
+    "SAW": {"city": "Istanbul", "state": "Turkey", "name": "Sabiha Gökçen International Airport", "utc_offset": "+3", "icon": "https://flagcdn.com/w40/tr.png"},
+    "AYT": {"city": "Antalya", "state": "Turkey", "name": "Antalya Airport", "utc_offset": "+3", "icon": "https://flagcdn.com/w40/tr.png"},
+    "IEV": {"city": "Kiev", "state": "Ukraine", "name": "Igor Sikorsky Kyiv International Airport", "utc_offset": "+2", "icon": "https://flagcdn.com/w40/ua.png"},
+    "LWO": {"city": "Lviv", "state": "Ukraine", "name": "Lviv Danylo Halytskyi International Airport", "utc_offset": "+2", "icon": "https://flagcdn.com/w40/ua.png"},
+    "ODS": {"city": "Odessa", "state": "Ukraine", "name": "Odessa International Airport", "utc_offset": "+2", "icon": "https://flagcdn.com/w40/ua.png"},
+    "BHX": {"city": "Birmingham", "state": "United Kingdom", "name": "Birmingham Airport", "utc_offset": "+0", "icon": "https://flagcdn.com/w40/gb.png"},
+    "BRS": {"city": "Bristol", "state": "United Kingdom", "name": "Bristol Airport", "utc_offset": "+0", "icon": "https://flagcdn.com/w40/gb.png"},
+    "CWL": {"city": "Cardiff", "state": "United Kingdom", "name": "Cardiff Airport", "utc_offset": "+0", "icon": "https://flagcdn.com/w40/gb.png"},
+    "EDI": {"city": "Edinburgh", "state": "United Kingdom", "name": "Edinburgh Airport", "utc_offset": "+0", "icon": "https://flagcdn.com/w40/gb.png"},
+    "GLA": {"city": "Glasgow", "state": "United Kingdom", "name": "Glasgow Airport", "utc_offset": "+0", "icon": "https://flagcdn.com/w40/gb.png"},
+    "LTN": {"city": "London", "state": "United Kingdom", "name": "London Luton Airport", "utc_offset": "+0", "icon": "https://flagcdn.com/w40/gb.png"},
+    "LGW": {"city": "London", "state": "United Kingdom", "name": "London Gatwick Airport", "utc_offset": "+0", "icon": "https://flagcdn.com/w40/gb.png"},
+    "SEN": {"city": "London", "state": "United Kingdom", "name": "London Southend Airport", "utc_offset": "+0", "icon": "https://flagcdn.com/w40/gb.png"},
+    "LPL": {"city": "Liverpool", "state": "United Kingdom", "name": "Liverpool John Lennon Airport", "utc_offset": "+0", "icon": "https://flagcdn.com/w40/gb.png"},
+    "BLL": {"city": "Billund", "state": "Denmark", "name": "Billund Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/dk.png"},
+    "AHO": {"city": "Alghero", "state": "Italy", "name": "Alghero-Fertilia Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/it.png"},
+    "GRO": {"city": "Girona", "state": "Spain", "name": "Girona-Costa Brava Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/es.png"},
+    "CRL": {"city": "Brussels Charleroi", "state": "Belgium", "name": "Brussels South Charleroi Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/be.png"},
+    "BNX": {"city": "Banja Luka", "state": "Bosnia and Herzegovina", "name": "Banja Luka International Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/ba.png"},
+    "DBV": {"city": "Dubrovnik", "state": "Croatia", "name": "Dubrovnik Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/hr.png"},
+    "CAI": {"city": "Cairo", "state": "Egypt", "name": "Cairo International Airport", "utc_offset": "+2", "icon": "https://flagcdn.com/w40/eg.png"},
+    "NCE": {"city": "Nice", "state": "France", "name": "Nice Côte d'Azur Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/fr.png"},
+    "CMN": {"city": "Casablanca", "state": "Morocco", "name": "Mohammed V International Airport", "utc_offset": "+1", "icon": "https://flagcdn.com/w40/ma.png"},
+    "LED": {"city": "St. Petersburg", "state": "Russia", "name": "Pulkovo Airport", "utc_offset": "+3", "icon": "https://flagcdn.com/w40/ru.png"},
+    "KBP": {"city": "Kyiv", "state": "Ukraine", "name": "Boryspil International Airport", "utc_offset": "+2", "icon": "https://flagcdn.com/w40/ua.png"},
+}
+
+
+  const weatherData = {"budapest": {"text": "Forecast: 2025-12-29: 1\u00b0C, Sunny || 2025-12-30: 1\u00b0C, Sunny || 2025-12-31: -2\u00b0C, Sunny || ", "style": [{"date": "2025-12-29", "description": "Sunny", "color": "green", "avgTemp": "1\u00b0C"}, {"date": "2025-12-30", "description": "Sunny", "color": "green", "avgTemp": "1\u00b0C"}, {"date": "2025-12-31", "description": "Sunny", "color": "green", "avgTemp": "-2\u00b0C"}]}, "bucharest": {"text": "Forecast: 2025-12-29: 1\u00b0C, Sunny || 2025-12-30: 2\u00b0C, Sunny || 2025-12-31: -1\u00b0C, Sunny || ", "style": [{"date": "2025-12-29", "description": "Sunny", "color": "green", "avgTemp": "1\u00b0C"}, {"date": "2025-12-30", "description": "Sunny", "color": "green", "avgTemp": "2\u00b0C"}, {"date": "2025-12-31", "description": "Sunny", "color": "green", "avgTemp": "-1\u00b0C"}]}, "cluj-napoca": {"text": "Forecast: 2025-12-29: -2\u00b0C, Sunny || 2025-12-30: -5\u00b0C, Heavy snow || 2025-12-31: -6\u00b0C, Cloudy  || ", "style": [{"date": "2025-12-29", "description": "Sunny", "color": "green", "avgTemp": "-2\u00b0C"}, {"date": "2025-12-30", "description": "Heavy snow", "color": "red", "avgTemp": "-5\u00b0C"}, {"date": "2025-12-31", "description": "Cloudy ", "color": "yellow", "avgTemp": "-6\u00b0C"}]}, "london": {"text": "Forecast: 2025-12-29: 5\u00b0C, Overcast  || 2025-12-30: 5\u00b0C, Sunny || 2025-12-31: 2\u00b0C, Sunny || ", "style": [{"date": "2025-12-29", "description": "Overcast ", "color": "yellow", "avgTemp": "5\u00b0C"}, {"date": "2025-12-30", "description": "Sunny", "color": "green", "avgTemp": "5\u00b0C"}, {"date": "2025-12-31", "description": "Sunny", "color": "green", "avgTemp": "2\u00b0C"}]}, "krakow": {"text": "Forecast: 2025-12-29: -1\u00b0C, Overcast  || 2025-12-30: -3\u00b0C, Blizzard || 2025-12-31: -5\u00b0C, Light snow || ", "style": [{"date": "2025-12-29", "description": "Overcast ", "color": "yellow", "avgTemp": "-1\u00b0C"}, {"date": "2025-12-30", "description": "Blizzard", "color": "red", "avgTemp": "-3\u00b0C"}, {"date": "2025-12-31", "description": "Light snow", "color": "red", "avgTemp": "-5\u00b0C"}]}, "milano": {"text": "Forecast: 2025-12-29: 5\u00b0C, Sunny || 2025-12-30: 5\u00b0C, Sunny || 2025-12-31: 3\u00b0C, Sunny || ", "style": [{"date": "2025-12-29", "description": "Sunny", "color": "green", "avgTemp": "5\u00b0C"}, {"date": "2025-12-30", "description": "Sunny", "color": "green", "avgTemp": "5\u00b0C"}, {"date": "2025-12-31", "description": "Sunny", "color": "green", "avgTemp": "3\u00b0C"}]}, "rome": {"text": "Forecast: 2025-12-29: 8\u00b0C, Sunny || 2025-12-30: 8\u00b0C, Sunny || 2025-12-31: 6\u00b0C, Patchy rain nearby || ", "style": [{"date": "2025-12-29", "description": "Sunny", "color": "green", "avgTemp": "8\u00b0C"}, {"date": "2025-12-30", "description": "Sunny", "color": "green", "avgTemp": "8\u00b0C"}, {"date": "2025-12-31", "description": "Patchy rain nearby", "color": "yellow", "avgTemp": "6\u00b0C"}]}, "naples": {"text": "Forecast: 2025-12-29: 11\u00b0C, Sunny || 2025-12-30: 11\u00b0C, Partly Cloudy  || 2025-12-31: 7\u00b0C, Sunny || ", "style": [{"date": "2025-12-29", "description": "Sunny", "color": "green", "avgTemp": "11\u00b0C"}, {"date": "2025-12-30", "description": "Partly Cloudy ", "color": "yellow", "avgTemp": "11\u00b0C"}, {"date": "2025-12-31", "description": "Sunny", "color": "green", "avgTemp": "7\u00b0C"}]}, "warsaw": {"text": "Forecast: 2025-12-29: 0\u00b0C, Overcast  || 2025-12-30: -1\u00b0C, Partly Cloudy  || 2025-12-31: -4\u00b0C, Moderate or heavy snow showers || ", "style": [{"date": "2025-12-29", "description": "Overcast ", "color": "yellow", "avgTemp": "0\u00b0C"}, {"date": "2025-12-30", "description": "Partly Cloudy ", "color": "yellow", "avgTemp": "-1\u00b0C"}, {"date": "2025-12-31", "description": "Moderate or heavy snow showers", "color": "red", "avgTemp": "-4\u00b0C"}]}, "vienna": {"text": "Forecast: 2025-12-29: 0\u00b0C, Sunny || 2025-12-30: -1\u00b0C, Sunny || 2025-12-31: -2\u00b0C, Overcast  || ", "style": [{"date": "2025-12-29", "description": "Sunny", "color": "green", "avgTemp": "0\u00b0C"}, {"date": "2025-12-30", "description": "Sunny", "color": "green", "avgTemp": "-1\u00b0C"}, {"date": "2025-12-31", "description": "Overcast ", "color": "yellow", "avgTemp": "-2\u00b0C"}]}, "thessaloniki": {"text": "Forecast: 2025-12-29: 5\u00b0C, Sunny || 2025-12-30: 6\u00b0C, Sunny || 2025-12-31: 1\u00b0C, Patchy rain nearby || ", "style": [{"date": "2025-12-29", "description": "Sunny", "color": "green", "avgTemp": "5\u00b0C"}, {"date": "2025-12-30", "description": "Sunny", "color": "green", "avgTemp": "6\u00b0C"}, {"date": "2025-12-31", "description": "Patchy rain nearby", "color": "yellow", "avgTemp": "1\u00b0C"}]}}
+
+  const flightsData = {"2026-01-01": [], "2025-12-29": [{"flightsInbound": [], "flightsOutbound": [{"actionText": "Select", "arrival": "1:20 pm", "arrivalDate": "29 December 2025", "arrivalDateIso": null, "arrivalDateTimeIso": "2025-12-29 14:20:00", "arrivalOffsetText": "UTC+1", "arrivalStation": "BUD", "arrivalStationCode": "BUD", "arrivalStationText": "Budapest", "carrierText": "Operated by W6", "currency": "ILS", "departure": "10:40 am", "departureDate": "29 December 2025", "departureDateIso": "2025-12-29", "departureDateTimeIso": "2025-12-29 12:40:00", "departureOffsetText": "UTC+2", "departureStation": "TLV", "departureStationCode": "TLV", "departureStationText": "Tel-Aviv", "discount": "0.00", "displayPrice": 43, "duration": "02h 40m", "fare": "43.00", "fareBasisCode": null, "fareSellKey": "MH5BWUNQfn5XNn5BWUNQflNVQlN_fjB_M35_WCEx", "flightCode": "W62326", "flightId": "2326", "isFree": "false", "key": "W62326 TLV#20251229T1040~BUD#20251229T1320", "price": "43.00", "priceTag": "wizzair.subscriptions.availability.results.price.tag.premium", "reference": "VzZ_MjMyNn4gfn5UTFZ_MTIvMjkvMjAyNSAxMDo0MH5CVUR_MTIvMjkvMjAyNSAxMzoyMH5_", "stops": "Nonstop", "taxes": "0.00", "totalPrice": "43.00"}, {"actionText": "Select", "arrival": "2:55 pm", "arrivalDate": "29 December 2025", "arrivalDateIso": null, "arrivalDateTimeIso": "2025-12-29 15:55:00", "arrivalOffsetText": "UTC+1", "arrivalStation": "BUD", "arrivalStationCode": "BUD", "arrivalStationText": "Budapest", "carrierText": "Operated by W6", "currency": "ILS", "departure": "12:15 pm", "departureDate": "29 December 2025", "departureDateIso": "2025-12-29", "departureDateTimeIso": "2025-12-29 14:15:00", "departureOffsetText": "UTC+2", "departureStation": "TLV", "departureStationCode": "TLV", "departureStationText": "Tel-Aviv", "discount": "0.00", "displayPrice": 43, "duration": "02h 40m", "fare": "43.00", "fareBasisCode": null, "fareSellKey": "MH5BWUNQfn5XNn5BWUNQflNVQlN_fjB_M35_WCEx", "flightCode": "W62332", "flightId": "2332", "isFree": "false", "key": "W62332 TLV#20251229T1215~BUD#20251229T1455", "price": "43.00", "priceTag": "wizzair.subscriptions.availability.results.price.tag.premium", "reference": "VzZ_MjMzMn4gfn5UTFZ_MTIvMjkvMjAyNSAxMjoxNX5CVUR_MTIvMjkvMjAyNSAxNDo1NX5_", "stops": "Nonstop", "taxes": "0.00", "totalPrice": "43.00"}, {"actionText": "Select", "arrival": "10:05 pm", "arrivalDate": "29 December 2025", "arrivalDateIso": null, "arrivalDateTimeIso": "2025-12-29 23:05:00", "arrivalOffsetText": "UTC+1", "arrivalStation": "BUD", "arrivalStationCode": "BUD", "arrivalStationText": "Budapest", "carrierText": "Operated by W6", "currency": "ILS", "departure": "7:25 pm", "departureDate": "29 December 2025", "departureDateIso": "2025-12-29", "departureDateTimeIso": "2025-12-29 21:25:00", "departureOffsetText": "UTC+2", "departureStation": "TLV", "departureStationCode": "TLV", "departureStationText": "Tel-Aviv", "discount": "0.00", "displayPrice": 43, "duration": "02h 40m", "fare": "43.00", "fareBasisCode": null, "fareSellKey": "MH5BWUNQfn5XNn5BWUNQflNVQlN_fjB_M35_WCEx", "flightCode": "W62330", "flightId": "2330", "isFree": "false", "key": "W62330 TLV#20251229T1925~BUD#20251229T2205", "price": "43.00", "priceTag": "wizzair.subscriptions.availability.results.price.tag.premium", "reference": "VzZ_MjMzMH4gfn5UTFZ_MTIvMjkvMjAyNSAxOToyNX5CVUR_MTIvMjkvMjAyNSAyMjowNX5_", "stops": "Nonstop", "taxes": "0.00", "totalPrice": "43.00"}]}, {"flightsInbound": [], "flightsOutbound": [{"actionText": "Select", "arrival": "2:10 am", "arrivalDate": "30 December 2025", "arrivalDateIso": null, "arrivalDateTimeIso": "2025-12-30 02:10:00", "arrivalOffsetText": "UTC", "arrivalStation": "LGW", "arrivalStationCode": "LGW", "arrivalStationText": "London Gatwick", "carrierText": "Operated by W9", "currency": "ILS", "departure": "10:40 pm", "departureDate": "29 December 2025", "departureDateIso": "2025-12-29", "departureDateTimeIso": "2025-12-30 00:40:00", "departureOffsetText": "UTC+2", "departureStation": "TLV", "departureStationCode": "TLV", "departureStationText": "Tel-Aviv", "discount": "0.00", "displayPrice": 43, "duration": "03h 30m", "fare": "43.00", "fareBasisCode": null, "fareSellKey": "MH5BWUNQfn5XNn5BWUNQflNVQlN_fjB_Mn5_WCEx", "flightCode": "W95804", "flightId": "5804", "isFree": "false", "key": "W95804 TLV#20251229T2240~LGW#20251230T0210", "price": "43.00", "priceTag": "wizzair.subscriptions.availability.results.price.tag.premium", "reference": "Vzl_NTgwNH4gfn5UTFZ_MTIvMjkvMjAyNSAyMjo0MH5MR1d_MTIvMzAvMjAyNSAwMjoxMH5_", "stops": "Nonstop", "taxes": "0.00", "totalPrice": "43.00"}]}, {"flightsInbound": [], "flightsOutbound": [{"actionText": "Select", "arrival": "10:25 pm", "arrivalDate": "29 December 2025", "arrivalDateIso": null, "arrivalDateTimeIso": "2025-12-29 23:25:00", "arrivalOffsetText": "UTC+1", "arrivalStation": "MXP", "arrivalStationCode": "MXP", "arrivalStationText": "Milan Malpensa", "carrierText": "Operated by W4", "currency": "ILS", "departure": "7:00 pm", "departureDate": "29 December 2025", "departureDateIso": "2025-12-29", "departureDateTimeIso": "2025-12-29 21:00:00", "departureOffsetText": "UTC+2", "departureStation": "TLV", "departureStationCode": "TLV", "departureStationText": "Tel-Aviv", "discount": "0.00", "displayPrice": 43, "duration": "03h 25m", "fare": "43.00", "fareBasisCode": null, "fareSellKey": "MH5BWUNQfn5XNn5BWUNQflNVQlN_fjB_Mn5_WCEx", "flightCode": "W46404", "flightId": "6404", "isFree": "false", "key": "W46404 TLV#20251229T1900~MXP#20251229T2225", "price": "43.00", "priceTag": "wizzair.subscriptions.availability.results.price.tag.premium", "reference": "VzR_NjQwNH4gfn5UTFZ_MTIvMjkvMjAyNSAxOTowMH5NWFB_MTIvMjkvMjAyNSAyMjoyNX5_", "stops": "Nonstop", "taxes": "0.00", "totalPrice": "43.00"}]}, {"flightsInbound": [], "flightsOutbound": [{"actionText": "Select", "arrival": "2:05 pm", "arrivalDate": "29 December 2025", "arrivalDateIso": null, "arrivalDateTimeIso": "2025-12-29 15:05:00", "arrivalOffsetText": "UTC+1", "arrivalStation": "FCO", "arrivalStationCode": "FCO", "arrivalStationText": "Rome Fiumicino", "carrierText": "Operated by W4", "currency": "ILS", "departure": "11:10 am", "departureDate": "29 December 2025", "departureDateIso": "2025-12-29", "departureDateTimeIso": "2025-12-29 13:10:00", "departureOffsetText": "UTC+2", "departureStation": "TLV", "departureStationCode": "TLV", "departureStationText": "Tel-Aviv", "discount": "0.00", "displayPrice": 43, "duration": "02h 55m", "fare": "43.00", "fareBasisCode": null, "fareSellKey": "MH5BWUNQfn5XNn5BWUNQflNVQlN_fjB_Mn5_WCEx", "flightCode": "W46044", "flightId": "6044", "isFree": "false", "key": "W46044 TLV#20251229T1110~FCO#20251229T1405", "price": "43.00", "priceTag": "wizzair.subscriptions.availability.results.price.tag.premium", "reference": "VzR_NjA0NH4gfn5UTFZ_MTIvMjkvMjAyNSAxMToxMH5GQ09_MTIvMjkvMjAyNSAxNDowNX5_", "stops": "Nonstop", "taxes": "0.00", "totalPrice": "43.00"}, {"actionText": "Select", "arrival": "10:20 pm", "arrivalDate": "29 December 2025", "arrivalDateIso": null, "arrivalDateTimeIso": "2025-12-29 23:20:00", "arrivalOffsetText": "UTC+1", "arrivalStation": "FCO", "arrivalStationCode": "FCO", "arrivalStationText": "Rome Fiumicino", "carrierText": "Operated by W4", "currency": "ILS", "departure": "7:25 pm", "departureDate": "29 December 2025", "departureDateIso": "2025-12-29", "departureDateTimeIso": "2025-12-29 21:25:00", "departureOffsetText": "UTC+2", "departureStation": "TLV", "departureStationCode": "TLV", "departureStationText": "Tel-Aviv", "discount": "0.00", "displayPrice": 43, "duration": "02h 55m", "fare": "43.00", "fareBasisCode": null, "fareSellKey": "MH5BWUNQfn5XNn5BWUNQflNVQlN_fjB_Mn5_WCEx", "flightCode": "W46056", "flightId": "6056", "isFree": "false", "key": "W46056 TLV#20251229T1925~FCO#20251229T2220", "price": "43.00", "priceTag": "wizzair.subscriptions.availability.results.price.tag.premium", "reference": "VzR_NjA1Nn4gfn5UTFZ_MTIvMjkvMjAyNSAxOToyNX5GQ09_MTIvMjkvMjAyNSAyMjoyMH5_", "stops": "Nonstop", "taxes": "0.00", "totalPrice": "43.00"}]}, {"flightsInbound": [], "flightsOutbound": [{"actionText": "Select", "arrival": "3:10 pm", "arrivalDate": "29 December 2025", "arrivalDateIso": null, "arrivalDateTimeIso": "2025-12-29 16:10:00", "arrivalOffsetText": "UTC+1", "arrivalStation": "WAW", "arrivalStationCode": "WAW", "arrivalStationText": "Warsaw Chopin", "carrierText": "Operated by W6", "currency": "ILS", "departure": "12:00 pm", "departureDate": "29 December 2025", "departureDateIso": "2025-12-29", "departureDateTimeIso": "2025-12-29 14:00:00", "departureOffsetText": "UTC+2", "departureStation": "TLV", "departureStationCode": "TLV", "departureStationText": "Tel-Aviv", "discount": "0.00", "displayPrice": 43, "duration": "03h 10m", "fare": "43.00", "fareBasisCode": null, "fareSellKey": "MH5BWUNQfn5XNn5BWUNQflNVQlN_fjB_MX5_WCEx", "flightCode": "W61560", "flightId": "1560", "isFree": "false", "key": "W61560 TLV#20251229T1200~WAW#20251229T1510", "price": "43.00", "priceTag": "wizzair.subscriptions.availability.results.price.tag.premium", "reference": "VzZ_MTU2MH4gfn5UTFZ_MTIvMjkvMjAyNSAxMjowMH5XQVd_MTIvMjkvMjAyNSAxNToxMH5_", "stops": "Nonstop", "taxes": "0.00", "totalPrice": "43.00"}]}], "2025-12-31": [{"flightsInbound": [], "flightsOutbound": [{"actionText": "Select", "arrival": "1:20 pm", "arrivalDate": "31 December 2025", "arrivalDateIso": null, "arrivalDateTimeIso": "2025-12-31 14:20:00", "arrivalOffsetText": "UTC+1", "arrivalStation": "BUD", "arrivalStationCode": "BUD", "arrivalStationText": "Budapest", "carrierText": "Operated by W6", "currency": "ILS", "departure": "10:40 am", "departureDate": "31 December 2025", "departureDateIso": "2025-12-31", "departureDateTimeIso": "2025-12-31 12:40:00", "departureOffsetText": "UTC+2", "departureStation": "TLV", "departureStationCode": "TLV", "departureStationText": "Tel-Aviv", "discount": "0.00", "displayPrice": 43, "duration": "02h 40m", "fare": "43.00", "fareBasisCode": null, "fareSellKey": "MH5BWUNQfn5XNn5BWUNQflNVQlN_fjB_M35_WCEx", "flightCode": "W62326", "flightId": "2326", "isFree": "false", "key": "W62326 TLV#20251231T1040~BUD#20251231T1320", "price": "43.00", "priceTag": "wizzair.subscriptions.availability.results.price.tag.premium", "reference": "VzZ_MjMyNn4gfn5UTFZ_MTIvMzEvMjAyNSAxMDo0MH5CVUR_MTIvMzEvMjAyNSAxMzoyMH5_", "stops": "Nonstop", "taxes": "0.00", "totalPrice": "43.00"}, {"actionText": "Select", "arrival": "10:05 pm", "arrivalDate": "31 December 2025", "arrivalDateIso": null, "arrivalDateTimeIso": "2025-12-31 23:05:00", "arrivalOffsetText": "UTC+1", "arrivalStation": "BUD", "arrivalStationCode": "BUD", "arrivalStationText": "Budapest", "carrierText": "Operated by W6", "currency": "ILS", "departure": "7:25 pm", "departureDate": "31 December 2025", "departureDateIso": "2025-12-31", "departureDateTimeIso": "2025-12-31 21:25:00", "departureOffsetText": "UTC+2", "departureStation": "TLV", "departureStationCode": "TLV", "departureStationText": "Tel-Aviv", "discount": "0.00", "displayPrice": 43, "duration": "02h 40m", "fare": "43.00", "fareBasisCode": null, "fareSellKey": "MH5BWUNQfn5XNn5BWUNQflNVQlN_fjB_M35_WCEx", "flightCode": "W62328", "flightId": "2328", "isFree": "false", "key": "W62328 TLV#20251231T1925~BUD#20251231T2205", "price": "43.00", "priceTag": "wizzair.subscriptions.availability.results.price.tag.premium", "reference": "VzZ_MjMyOH4gfn5UTFZ_MTIvMzEvMjAyNSAxOToyNX5CVUR_MTIvMzEvMjAyNSAyMjowNX5_", "stops": "Nonstop", "taxes": "0.00", "totalPrice": "43.00"}]}, {"flightsInbound": [], "flightsOutbound": [{"actionText": "Select", "arrival": "12:55 pm", "arrivalDate": "31 December 2025", "arrivalDateIso": null, "arrivalDateTimeIso": "2025-12-31 14:55:00", "arrivalOffsetText": "UTC+2", "arrivalStation": "CLJ", "arrivalStationCode": "CLJ", "arrivalStationText": "Cluj-Napoca", "carrierText": "Operated by W4", "currency": "ILS", "departure": "9:35 am", "departureDate": "31 December 2025", "departureDateIso": "2025-12-31", "departureDateTimeIso": "2025-12-31 11:35:00", "departureOffsetText": "UTC+2", "departureStation": "TLV", "departureStationCode": "TLV", "departureStationText": "Tel-Aviv", "discount": "0.00", "displayPrice": 43, "duration": "03h 20m", "fare": "43.00", "fareBasisCode": null, "fareSellKey": "MH5BWUNQfn5XNn5BWUNQflNVQlN_fjB_M35_WCEx", "flightCode": "W43484", "flightId": "3484", "isFree": "false", "key": "W43484 TLV#20251231T0935~CLJ#20251231T1255", "price": "43.00", "priceTag": "wizzair.subscriptions.availability.results.price.tag.premium", "reference": "VzR_MzQ4NH4gfn5UTFZ_MTIvMzEvMjAyNSAwOTozNX5DTEp_MTIvMzEvMjAyNSAxMjo1NX5_", "stops": "Nonstop", "taxes": "0.00", "totalPrice": "43.00"}]}, {"flightsInbound": [], "flightsOutbound": [{"actionText": "Select", "arrival": "1:55 pm", "arrivalDate": "31 December 2025", "arrivalDateIso": null, "arrivalDateTimeIso": "2025-12-31 14:55:00", "arrivalOffsetText": "UTC+1", "arrivalStation": "KRK", "arrivalStationCode": "KRK", "arrivalStationText": "Krak\u00f3w", "carrierText": "Operated by W6", "currency": "ILS", "departure": "11:00 am", "departureDate": "31 December 2025", "departureDateIso": "2025-12-31", "departureDateTimeIso": "2025-12-31 13:00:00", "departureOffsetText": "UTC+2", "departureStation": "TLV", "departureStationCode": "TLV", "departureStationText": "Tel-Aviv", "discount": "0.00", "displayPrice": 43, "duration": "02h 55m", "fare": "43.00", "fareBasisCode": null, "fareSellKey": "MH5BWUNQfn5XNn5BWUNQflNVQlN_fjB_MX5_WCEx", "flightCode": "W62098", "flightId": "2098", "isFree": "false", "key": "W62098 TLV#20251231T1100~KRK#20251231T1355", "price": "43.00", "priceTag": "wizzair.subscriptions.availability.results.price.tag.premium", "reference": "VzZ_MjA5OH4gfn5UTFZ_MTIvMzEvMjAyNSAxMTowMH5LUkt_MTIvMzEvMjAyNSAxMzo1NX5_", "stops": "Nonstop", "taxes": "0.00", "totalPrice": "43.00"}]}, {"flightsInbound": [], "flightsOutbound": [{"actionText": "Select", "arrival": "10:25 pm", "arrivalDate": "31 December 2025", "arrivalDateIso": null, "arrivalDateTimeIso": "2025-12-31 23:25:00", "arrivalOffsetText": "UTC+1", "arrivalStation": "MXP", "arrivalStationCode": "MXP", "arrivalStationText": "Milan Malpensa", "carrierText": "Operated by W4", "currency": "ILS", "departure": "7:00 pm", "departureDate": "31 December 2025", "departureDateIso": "2025-12-31", "departureDateTimeIso": "2025-12-31 21:00:00", "departureOffsetText": "UTC+2", "departureStation": "TLV", "departureStationCode": "TLV", "departureStationText": "Tel-Aviv", "discount": "0.00", "displayPrice": 43, "duration": "03h 25m", "fare": "43.00", "fareBasisCode": null, "fareSellKey": "MH5BWUNQfn5XNn5BWUNQflNVQlN_fjB_Mn5_WCEx", "flightCode": "W46404", "flightId": "6404", "isFree": "false", "key": "W46404 TLV#20251231T1900~MXP#20251231T2225", "price": "43.00", "priceTag": "wizzair.subscriptions.availability.results.price.tag.premium", "reference": "VzR_NjQwNH4gfn5UTFZ_MTIvMzEvMjAyNSAxOTowMH5NWFB_MTIvMzEvMjAyNSAyMjoyNX5_", "stops": "Nonstop", "taxes": "0.00", "totalPrice": "43.00"}]}, {"flightsInbound": [], "flightsOutbound": [{"actionText": "Select", "arrival": "2:05 pm", "arrivalDate": "31 December 2025", "arrivalDateIso": null, "arrivalDateTimeIso": "2025-12-31 15:05:00", "arrivalOffsetText": "UTC+1", "arrivalStation": "FCO", "arrivalStationCode": "FCO", "arrivalStationText": "Rome Fiumicino", "carrierText": "Operated by W4", "currency": "ILS", "departure": "11:10 am", "departureDate": "31 December 2025", "departureDateIso": "2025-12-31", "departureDateTimeIso": "2025-12-31 13:10:00", "departureOffsetText": "UTC+2", "departureStation": "TLV", "departureStationCode": "TLV", "departureStationText": "Tel-Aviv", "discount": "0.00", "displayPrice": 43, "duration": "02h 55m", "fare": "43.00", "fareBasisCode": null, "fareSellKey": "MH5BWUNQfn5XNn5BWUNQflNVQlN_fjB_Mn5_WCEx", "flightCode": "W46044", "flightId": "6044", "isFree": "false", "key": "W46044 TLV#20251231T1110~FCO#20251231T1405", "price": "43.00", "priceTag": "wizzair.subscriptions.availability.results.price.tag.premium", "reference": "VzR_NjA0NH4gfn5UTFZ_MTIvMzEvMjAyNSAxMToxMH5GQ09_MTIvMzEvMjAyNSAxNDowNX5_", "stops": "Nonstop", "taxes": "0.00", "totalPrice": "43.00"}, {"actionText": "Select", "arrival": "10:15 pm", "arrivalDate": "31 December 2025", "arrivalDateIso": null, "arrivalDateTimeIso": "2025-12-31 23:15:00", "arrivalOffsetText": "UTC+1", "arrivalStation": "FCO", "arrivalStationCode": "FCO", "arrivalStationText": "Rome Fiumicino", "carrierText": "Operated by W4", "currency": "ILS", "departure": "7:20 pm", "departureDate": "31 December 2025", "departureDateIso": "2025-12-31", "departureDateTimeIso": "2025-12-31 21:20:00", "departureOffsetText": "UTC+2", "departureStation": "TLV", "departureStationCode": "TLV", "departureStationText": "Tel-Aviv", "discount": "0.00", "displayPrice": 43, "duration": "02h 55m", "fare": "43.00", "fareBasisCode": null, "fareSellKey": "MH5BWUNQfn5XNn5BWUNQflNVQlN_fjB_Mn5_WCEx", "flightCode": "W46056", "flightId": "6056", "isFree": "false", "key": "W46056 TLV#20251231T1920~FCO#20251231T2215", "price": "43.00", "priceTag": "wizzair.subscriptions.availability.results.price.tag.premium", "reference": "VzR_NjA1Nn4gfn5UTFZ_MTIvMzEvMjAyNSAxOToyMH5GQ09_MTIvMzEvMjAyNSAyMjoxNX5_", "stops": "Nonstop", "taxes": "0.00", "totalPrice": "43.00"}]}, {"flightsInbound": [], "flightsOutbound": [{"actionText": "Select", "arrival": "10:00 pm", "arrivalDate": "31 December 2025", "arrivalDateIso": null, "arrivalDateTimeIso": "2025-12-31 23:00:00", "arrivalOffsetText": "UTC+1", "arrivalStation": "VIE", "arrivalStationCode": "VIE", "arrivalStationText": "Vienna", "carrierText": "Operated by W4", "currency": "ILS", "departure": "7:00 pm", "departureDate": "31 December 2025", "departureDateIso": "2025-12-31", "departureDateTimeIso": "2025-12-31 21:00:00", "departureOffsetText": "UTC+2", "departureStation": "TLV", "departureStationCode": "TLV", "departureStationText": "Tel-Aviv", "discount": "0.00", "displayPrice": 43, "duration": "03h 00m", "fare": "43.00", "fareBasisCode": null, "fareSellKey": "MH5BWUNQfn5XNn5BWUNQflNVQlN_fjB_Mn5_WCEx", "flightCode": "W42812", "flightId": "2812", "isFree": "false", "key": "W42812 TLV#20251231T1900~VIE#20251231T2200", "price": "43.00", "priceTag": "wizzair.subscriptions.availability.results.price.tag.premium", "reference": "VzR_MjgxMn4gfn5UTFZ_MTIvMzEvMjAyNSAxOTowMH5WSUV_MTIvMzEvMjAyNSAyMjowMH5_", "stops": "Nonstop", "taxes": "0.00", "totalPrice": "43.00"}]}, {"flightsInbound": [], "flightsOutbound": [{"actionText": "Select", "arrival": "3:10 pm", "arrivalDate": "31 December 2025", "arrivalDateIso": null, "arrivalDateTimeIso": "2025-12-31 16:10:00", "arrivalOffsetText": "UTC+1", "arrivalStation": "WAW", "arrivalStationCode": "WAW", "arrivalStationText": "Warsaw Chopin", "carrierText": "Operated by W6", "currency": "ILS", "departure": "12:00 pm", "departureDate": "31 December 2025", "departureDateIso": "2025-12-31", "departureDateTimeIso": "2025-12-31 14:00:00", "departureOffsetText": "UTC+2", "departureStation": "TLV", "departureStationCode": "TLV", "departureStationText": "Tel-Aviv", "discount": "0.00", "displayPrice": 43, "duration": "03h 10m", "fare": "43.00", "fareBasisCode": null, "fareSellKey": "MH5BWUNQfn5XNn5BWUNQflNVQlN_fjB_MX5_WCEx", "flightCode": "W61560", "flightId": "1560", "isFree": "false", "key": "W61560 TLV#20251231T1200~WAW#20251231T1510", "price": "43.00", "priceTag": "wizzair.subscriptions.availability.results.price.tag.premium", "reference": "VzZ_MTU2MH4gfn5UTFZ_MTIvMzEvMjAyNSAxMjowMH5XQVd_MTIvMzEvMjAyNSAxNToxMH5_", "stops": "Nonstop", "taxes": "0.00", "totalPrice": "43.00"}]}], "2025-12-30": [{"flightsInbound": [], "flightsOutbound": [{"actionText": "Select", "arrival": "12:15 pm", "arrivalDate": "30 December 2025", "arrivalDateIso": null, "arrivalDateTimeIso": "2025-12-30 14:15:00", "arrivalOffsetText": "UTC+2", "arrivalStation": "OTP", "arrivalStationCode": "OTP", "arrivalStationText": "Bucharest", "carrierText": "Operated by W4", "currency": "ILS", "departure": "9:20 am", "departureDate": "30 December 2025", "departureDateIso": "2025-12-30", "departureDateTimeIso": "2025-12-30 11:20:00", "departureOffsetText": "UTC+2", "departureStation": "TLV", "departureStationCode": "TLV", "departureStationText": "Tel-Aviv", "discount": "0.00", "displayPrice": 43, "duration": "02h 55m", "fare": "43.00", "fareBasisCode": null, "fareSellKey": "MH5BWUNQfn5XNn5BWUNQflNVQlN_fjB_Mn5_WCEx", "flightCode": "W43258", "flightId": "3258", "isFree": "false", "key": "W43258 TLV#20251230T0920~OTP#20251230T1215", "price": "43.00", "priceTag": "wizzair.subscriptions.availability.results.price.tag.premium", "reference": "VzR_MzI1OH4gfn5UTFZ_MTIvMzAvMjAyNSAwOToyMH5PVFB_MTIvMzAvMjAyNSAxMjoxNX5_", "stops": "Nonstop", "taxes": "0.00", "totalPrice": "43.00"}]}, {"flightsInbound": [], "flightsOutbound": [{"actionText": "Select", "arrival": "1:20 pm", "arrivalDate": "30 December 2025", "arrivalDateIso": null, "arrivalDateTimeIso": "2025-12-30 14:20:00", "arrivalOffsetText": "UTC+1", "arrivalStation": "BUD", "arrivalStationCode": "BUD", "arrivalStationText": "Budapest", "carrierText": "Operated by W6", "currency": "ILS", "departure": "10:40 am", "departureDate": "30 December 2025", "departureDateIso": "2025-12-30", "departureDateTimeIso": "2025-12-30 12:40:00", "departureOffsetText": "UTC+2", "departureStation": "TLV", "departureStationCode": "TLV", "departureStationText": "Tel-Aviv", "discount": "0.00", "displayPrice": 43, "duration": "02h 40m", "fare": "43.00", "fareBasisCode": null, "fareSellKey": "MH5BWUNQfn5XNn5BWUNQflNVQlN_fjB_M35_WCEx", "flightCode": "W62326", "flightId": "2326", "isFree": "false", "key": "W62326 TLV#20251230T1040~BUD#20251230T1320", "price": "43.00", "priceTag": "wizzair.subscriptions.availability.results.price.tag.premium", "reference": "VzZ_MjMyNn4gfn5UTFZ_MTIvMzAvMjAyNSAxMDo0MH5CVUR_MTIvMzAvMjAyNSAxMzoyMH5_", "stops": "Nonstop", "taxes": "0.00", "totalPrice": "43.00"}, {"actionText": "Select", "arrival": "10:05 pm", "arrivalDate": "30 December 2025", "arrivalDateIso": null, "arrivalDateTimeIso": "2025-12-30 23:05:00", "arrivalOffsetText": "UTC+1", "arrivalStation": "BUD", "arrivalStationCode": "BUD", "arrivalStationText": "Budapest", "carrierText": "Operated by W6", "currency": "ILS", "departure": "7:25 pm", "departureDate": "30 December 2025", "departureDateIso": "2025-12-30", "departureDateTimeIso": "2025-12-30 21:25:00", "departureOffsetText": "UTC+2", "departureStation": "TLV", "departureStationCode": "TLV", "departureStationText": "Tel-Aviv", "discount": "0.00", "displayPrice": 43, "duration": "02h 40m", "fare": "43.00", "fareBasisCode": null, "fareSellKey": "MH5BWUNQfn5XNn5BWUNQflNVQlN_fjB_M35_WCEx", "flightCode": "W62330", "flightId": "2330", "isFree": "false", "key": "W62330 TLV#20251230T1925~BUD#20251230T2205", "price": "43.00", "priceTag": "wizzair.subscriptions.availability.results.price.tag.premium", "reference": "VzZ_MjMzMH4gfn5UTFZ_MTIvMzAvMjAyNSAxOToyNX5CVUR_MTIvMzAvMjAyNSAyMjowNX5_", "stops": "Nonstop", "taxes": "0.00", "totalPrice": "43.00"}]}, {"flightsInbound": [], "flightsOutbound": [{"actionText": "Select", "arrival": "1:55 pm", "arrivalDate": "30 December 2025", "arrivalDateIso": null, "arrivalDateTimeIso": "2025-12-30 14:55:00", "arrivalOffsetText": "UTC+1", "arrivalStation": "KRK", "arrivalStationCode": "KRK", "arrivalStationText": "Krak\u00f3w", "carrierText": "Operated by W6", "currency": "ILS", "departure": "11:00 am", "departureDate": "30 December 2025", "departureDateIso": "2025-12-30", "departureDateTimeIso": "2025-12-30 13:00:00", "departureOffsetText": "UTC+2", "departureStation": "TLV", "departureStationCode": "TLV", "departureStationText": "Tel-Aviv", "discount": "0.00", "displayPrice": 43, "duration": "02h 55m", "fare": "43.00", "fareBasisCode": null, "fareSellKey": "MH5BWUNQfn5XNn5BWUNQflNVQlN_fjB_MX5_WCEx", "flightCode": "W62098", "flightId": "2098", "isFree": "false", "key": "W62098 TLV#20251230T1100~KRK#20251230T1355", "price": "43.00", "priceTag": "wizzair.subscriptions.availability.results.price.tag.premium", "reference": "VzZ_MjA5OH4gfn5UTFZ_MTIvMzAvMjAyNSAxMTowMH5LUkt_MTIvMzAvMjAyNSAxMzo1NX5_", "stops": "Nonstop", "taxes": "0.00", "totalPrice": "43.00"}]}, {"flightsInbound": [], "flightsOutbound": [{"actionText": "Select", "arrival": "3:35 pm", "arrivalDate": "30 December 2025", "arrivalDateIso": null, "arrivalDateTimeIso": "2025-12-30 16:35:00", "arrivalOffsetText": "UTC+1", "arrivalStation": "MXP", "arrivalStationCode": "MXP", "arrivalStationText": "Milan Malpensa", "carrierText": "Operated by W4", "currency": "ILS", "departure": "12:10 pm", "departureDate": "30 December 2025", "departureDateIso": "2025-12-30", "departureDateTimeIso": "2025-12-30 14:10:00", "departureOffsetText": "UTC+2", "departureStation": "TLV", "departureStationCode": "TLV", "departureStationText": "Tel-Aviv", "discount": "0.00", "displayPrice": 43, "duration": "03h 25m", "fare": "43.00", "fareBasisCode": null, "fareSellKey": "MH5BWUNQfn5XNn5BWUNQflNVQlN_fjB_Mn5_WCEx", "flightCode": "W46406", "flightId": "6406", "isFree": "false", "key": "W46406 TLV#20251230T1210~MXP#20251230T1535", "price": "43.00", "priceTag": "wizzair.subscriptions.availability.results.price.tag.premium", "reference": "VzR_NjQwNn4gfn5UTFZ_MTIvMzAvMjAyNSAxMjoxMH5NWFB_MTIvMzAvMjAyNSAxNTozNX5_", "stops": "Nonstop", "taxes": "0.00", "totalPrice": "43.00"}, {"actionText": "Select", "arrival": "10:25 pm", "arrivalDate": "30 December 2025", "arrivalDateIso": null, "arrivalDateTimeIso": "2025-12-30 23:25:00", "arrivalOffsetText": "UTC+1", "arrivalStation": "MXP", "arrivalStationCode": "MXP", "arrivalStationText": "Milan Malpensa", "carrierText": "Operated by W4", "currency": "ILS", "departure": "7:00 pm", "departureDate": "30 December 2025", "departureDateIso": "2025-12-30", "departureDateTimeIso": "2025-12-30 21:00:00", "departureOffsetText": "UTC+2", "departureStation": "TLV", "departureStationCode": "TLV", "departureStationText": "Tel-Aviv", "discount": "0.00", "displayPrice": 43, "duration": "03h 25m", "fare": "43.00", "fareBasisCode": null, "fareSellKey": "MH5BWUNQfn5XNn5BWUNQflNVQlN_fjB_Mn5_WCEx", "flightCode": "W46404", "flightId": "6404", "isFree": "false", "key": "W46404 TLV#20251230T1900~MXP#20251230T2225", "price": "43.00", "priceTag": "wizzair.subscriptions.availability.results.price.tag.premium", "reference": "VzR_NjQwNH4gfn5UTFZ_MTIvMzAvMjAyNSAxOTowMH5NWFB_MTIvMzAvMjAyNSAyMjoyNX5_", "stops": "Nonstop", "taxes": "0.00", "totalPrice": "43.00"}]}, {"flightsInbound": [], "flightsOutbound": [{"actionText": "Select", "arrival": "1:35 pm", "arrivalDate": "30 December 2025", "arrivalDateIso": null, "arrivalDateTimeIso": "2025-12-30 14:35:00", "arrivalOffsetText": "UTC+1", "arrivalStation": "NAP", "arrivalStationCode": "NAP", "arrivalStationText": "Naples", "carrierText": "Operated by W4", "currency": "ILS", "departure": "11:00 am", "departureDate": "30 December 2025", "departureDateIso": "2025-12-30", "departureDateTimeIso": "2025-12-30 13:00:00", "departureOffsetText": "UTC+2", "departureStation": "TLV", "departureStationCode": "TLV", "departureStationText": "Tel-Aviv", "discount": "0.00", "displayPrice": 43, "duration": "02h 35m", "fare": "43.00", "fareBasisCode": null, "fareSellKey": "MH5BWUNQfn5XNn5BWUNQflNVQlN_fjB_Mn5_WCEx", "flightCode": "W46924", "flightId": "6924", "isFree": "false", "key": "W46924 TLV#20251230T1100~NAP#20251230T1335", "price": "43.00", "priceTag": "wizzair.subscriptions.availability.results.price.tag.premium", "reference": "VzR_NjkyNH4gfn5UTFZ_MTIvMzAvMjAyNSAxMTowMH5OQVB_MTIvMzAvMjAyNSAxMzozNX5_", "stops": "Nonstop", "taxes": "0.00", "totalPrice": "43.00"}]}, {"flightsInbound": [], "flightsOutbound": [{"actionText": "Select", "arrival": "2:05 pm", "arrivalDate": "30 December 2025", "arrivalDateIso": null, "arrivalDateTimeIso": "2025-12-30 15:05:00", "arrivalOffsetText": "UTC+1", "arrivalStation": "FCO", "arrivalStationCode": "FCO", "arrivalStationText": "Rome Fiumicino", "carrierText": "Operated by W4", "currency": "ILS", "departure": "11:10 am", "departureDate": "30 December 2025", "departureDateIso": "2025-12-30", "departureDateTimeIso": "2025-12-30 13:10:00", "departureOffsetText": "UTC+2", "departureStation": "TLV", "departureStationCode": "TLV", "departureStationText": "Tel-Aviv", "discount": "0.00", "displayPrice": 43, "duration": "02h 55m", "fare": "43.00", "fareBasisCode": null, "fareSellKey": "MH5BWUNQfn5XNn5BWUNQflNVQlN_fjB_Mn5_WCEx", "flightCode": "W46050", "flightId": "6050", "isFree": "false", "key": "W46050 TLV#20251230T1110~FCO#20251230T1405", "price": "43.00", "priceTag": "wizzair.subscriptions.availability.results.price.tag.premium", "reference": "VzR_NjA1MH4gfn5UTFZ_MTIvMzAvMjAyNSAxMToxMH5GQ09_MTIvMzAvMjAyNSAxNDowNX5_", "stops": "Nonstop", "taxes": "0.00", "totalPrice": "43.00"}, {"actionText": "Select", "arrival": "10:00 pm", "arrivalDate": "30 December 2025", "arrivalDateIso": null, "arrivalDateTimeIso": "2025-12-30 23:00:00", "arrivalOffsetText": "UTC+1", "arrivalStation": "FCO", "arrivalStationCode": "FCO", "arrivalStationText": "Rome Fiumicino", "carrierText": "Operated by W4", "currency": "ILS", "departure": "7:05 pm", "departureDate": "30 December 2025", "departureDateIso": "2025-12-30", "departureDateTimeIso": "2025-12-30 21:05:00", "departureOffsetText": "UTC+2", "departureStation": "TLV", "departureStationCode": "TLV", "departureStationText": "Tel-Aviv", "discount": "0.00", "displayPrice": 43, "duration": "02h 55m", "fare": "43.00", "fareBasisCode": null, "fareSellKey": "MH5BWUNQfn5XNn5BWUNQflNVQlN_fjB_Mn5_WCEx", "flightCode": "W46056", "flightId": "6056", "isFree": "false", "key": "W46056 TLV#20251230T1905~FCO#20251230T2200", "price": "43.00", "priceTag": "wizzair.subscriptions.availability.results.price.tag.premium", "reference": "VzR_NjA1Nn4gfn5UTFZ_MTIvMzAvMjAyNSAxOTowNX5GQ09_MTIvMzAvMjAyNSAyMjowMH5_", "stops": "Nonstop", "taxes": "0.00", "totalPrice": "43.00"}]}, {"flightsInbound": [], "flightsOutbound": [{"actionText": "Select", "arrival": "10:50 am", "arrivalDate": "30 December 2025", "arrivalDateIso": null, "arrivalDateTimeIso": "2025-12-30 12:50:00", "arrivalOffsetText": "UTC+2", "arrivalStation": "SKG", "arrivalStationCode": "SKG", "arrivalStationText": "Thessaloniki", "carrierText": "Operated by W6", "currency": "ILS", "departure": "8:15 am", "departureDate": "30 December 2025", "departureDateIso": "2025-12-30", "departureDateTimeIso": "2025-12-30 10:15:00", "departureOffsetText": "UTC+2", "departureStation": "TLV", "departureStationCode": "TLV", "departureStationText": "Tel-Aviv", "discount": "0.00", "displayPrice": 43, "duration": "02h 35m", "fare": "43.00", "fareBasisCode": null, "fareSellKey": "MH5BWUNQfn5XNn5BWUNQflNVQlN_fjB_MX5_WCEx", "flightCode": "W67513", "flightId": "7513", "isFree": "false", "key": "W67513 TLV#20251230T0815~SKG#20251230T1050", "price": "43.00", "priceTag": "wizzair.subscriptions.availability.results.price.tag.premium", "reference": "VzZ_NzUxM34gfn5UTFZ_MTIvMzAvMjAyNSAwODoxNX5TS0d_MTIvMzAvMjAyNSAxMDo1MH5_", "stops": "Nonstop", "taxes": "0.00", "totalPrice": "43.00"}]}, {"flightsInbound": [], "flightsOutbound": [{"actionText": "Select", "arrival": "10:00 pm", "arrivalDate": "30 December 2025", "arrivalDateIso": null, "arrivalDateTimeIso": "2025-12-30 23:00:00", "arrivalOffsetText": "UTC+1", "arrivalStation": "VIE", "arrivalStationCode": "VIE", "arrivalStationText": "Vienna", "carrierText": "Operated by W4", "currency": "ILS", "departure": "7:00 pm", "departureDate": "30 December 2025", "departureDateIso": "2025-12-30", "departureDateTimeIso": "2025-12-30 21:00:00", "departureOffsetText": "UTC+2", "departureStation": "TLV", "departureStationCode": "TLV", "departureStationText": "Tel-Aviv", "discount": "0.00", "displayPrice": 43, "duration": "03h 00m", "fare": "43.00", "fareBasisCode": null, "fareSellKey": "MH5BWUNQfn5XNn5BWUNQflNVQlN_fjB_Mn5_WCEx", "flightCode": "W42812", "flightId": "2812", "isFree": "false", "key": "W42812 TLV#20251230T1900~VIE#20251230T2200", "price": "43.00", "priceTag": "wizzair.subscriptions.availability.results.price.tag.premium", "reference": "VzR_MjgxMn4gfn5UTFZ_MTIvMzAvMjAyNSAxOTowMH5WSUV_MTIvMzAvMjAyNSAyMjowMH5_", "stops": "Nonstop", "taxes": "0.00", "totalPrice": "43.00"}]}]}
+
+
+  window.onload = () => {
+    const today = new Date();
+    const threeDaysLater = new Date();
+    threeDaysLater.setDate(today.getDate() + 4);
+    document.getElementById('start-date').value = today.toISOString().split('T')[0];
+    document.getElementById('end-date').value = threeDaysLater.toISOString().split('T')[0];
+    document.getElementById('start-hour').value = 0;
+    document.getElementById('end-hour').value = 23;
+    renderFlights();
+  };
+
+  function changeDate(inputId, delta) {
+    const input = document.getElementById(inputId);
+    if (!input.value) return;
+    const date = new Date(input.value);
+    date.setDate(date.getDate() + delta);
+    input.value = date.toISOString().split('T')[0];
+    renderFlights();
+  }
+
+  function changeHour(inputId, delta) {
+    const input = document.getElementById(inputId);
+    let hour = parseInt(input.value) || 0;
+    hour = Math.max(0, Math.min(23, hour + delta));
+    input.value = hour;
+    renderFlights();
+  }
+
+  function renderFlights() {
+    const container = document.getElementById('flights-container');
+    container.innerHTML = '';
+
+    const start = document.getElementById('start-date').value;
+    const end = document.getElementById('end-date').value;
+    const weatherFilter = document.getElementById('weather-filter').value;
+
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      const dateStr = d.toISOString().split('T')[0];
+      const flightsForDay = flightsData[dateStr];
+      if (!flightsForDay) continue;
+
+      const daySection = document.createElement('div');
+      daySection.className = 'day-section';
+      
+      // Create day title
+      const dayTitle = document.createElement('div');
+      dayTitle.className = 'day-title';
+      const dateSpan = document.createElement('span');
+      dateSpan.textContent = dateStr;
+      dayTitle.appendChild(dateSpan);
+      dayTitle.addEventListener('click', () => {
+        daySection.classList.toggle('collapsed');
+      });
+      daySection.appendChild(dayTitle);
+
+      // Create flight cards container
+      const flightCardsContainer = document.createElement('div');
+      flightCardsContainer.className = 'flight-cards-container';
+      daySection.appendChild(flightCardsContainer);
+
+      flightsForDay.forEach(flightGroup => {
+        flightGroup.flightsOutbound.forEach(flight => {
+          const from = airports[flight.departureStationCode] || {};
+          const to = airports[flight.arrivalStationCode] || {};
+          availableAirports.add(flight.arrivalStationCode);
+          let city = to.city;
+
+          let weatherRow = "Missing city"
+          if (city){
+            if (city == "Milan") city = "Milano"
+            if (city == "Brașov") city = "brasov"
+            if (city == "Marrakech") city = "marrakesh"
+            if (city == "Wrocław") city = "wroclaw"
+            city = city.replace(/\s+/g, '+')
+            weatherRow = (weatherData[city.toLowerCase()]?.style || []).map(w => {
+              if (weatherFilter && w.color !== weatherFilter) return '';
+              return `<div class="weather-badge ${w.color}">${w.date}: ${w.description} ${w.avgTemp}</div>`;
+            }).join('');
+          }
+
+          const flightCard = document.createElement('div');
+          flightCard.className = `flight-card airport-${flight.arrivalStationCode}`;
+          flightCard.innerHTML = `
+            <div class="flight-info">
+              <div><strong>From:</strong> <img width="20" height="15" src=${from.icon} /> ${from.city || ''}, ${flight.departureStationCode} (${from.name || ''}), ${from.state || ''}</div>
+              <div><strong>To:</strong> <img width="20" height="15" src=${to.icon} /> ${to.city || ''}, ${flight.arrivalStationCode} (${to.name || ''}), ${to.state || ''}</div>
+              <div><strong>Takeoff:</strong> ${flight.departure}</div>
+              <div><strong>Duration:</strong> ${flight.duration}</div>
+            </div>
+            <div class="weather-row">${weatherRow}</div>
+          `;
+          flightCardsContainer.appendChild(flightCard);
+        });
+      });
+
+      container.appendChild(daySection);
+      updateSelectedAirports()
+    }
+  }
+
+/* airport filter selection */
+const selectedAirports = new Set();
+const availableAirports = new Set();
+
+function createAirportButtons() {
+    const container = document.getElementById('airportContainer');
+
+    Object.entries(airports).forEach(([code, info]) => {
+        if (!availableAirports.has(code)) {
+            return;
+        }
+        const button = document.createElement('button');
+        button.className = 'airport-button';
+        button.innerHTML = `
+            <img src="${info.icon}" alt="${info.state} flag">
+            <span>${info.city} (${code})</span>
+        `;
+
+
+        button.addEventListener('click', () => {
+            if (selectedAirports.has(code)) {
+                selectedAirports.delete(code);
+                button.classList.remove('selected');
+            } else {
+                selectedAirports.add(code);
+                button.classList.add('selected');
+            }
+            updateSelectedAirports();
+        });
+
+        container.appendChild(button);
+    });
+    updateSelectedAirports()
+}
+
+function updateSelectedAirports() {
+    // loop over all the .flight-card elements, if it's code is in the selectedAirports list add class SELECTED if not remove the class
+    document.querySelectorAll('.flight-card').forEach(card => {
+        const airportCode = card.className.split(' ')[1].replace('airport-', '');
+        if (selectedAirports.size == 0 || selectedAirports.has(airportCode)) {
+            card.classList.add('SELECTED');
+        } else {
+            card.classList.remove('SELECTED');
+        }
+    });
+}
+
+// Initialize the airport buttons when the page loads
+window.addEventListener('load', createAirportButtons);
+/* end airport filter selection */
+</script>
+
+</body>
+</html>
